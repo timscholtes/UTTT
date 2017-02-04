@@ -49,7 +49,8 @@ class Position:
 		6:((0,3),(7,8),(2,4)),
 		7:((1,4),(6,8)),
 		8:((6,7),(2,5))}
-
+		# THis is for fast lookup
+		self.mini_board_list = [self.get_mini_board(j) for j in range(9)]
 
 
 	def parse_field(self, fstr):
@@ -61,12 +62,20 @@ class Position:
 		self.macroboard = [ int(f) for f in mblist ]
 	
 	def is_legal(self,state, x, y):
-		mbx, mby = x/3, y/3
-		return state['macroboard'][3*mby+mbx] == -1 and state['board'][9*y+x] == 0
+		return state['board'][9*y+x] == 0
 
 	def legal_moves(self,state):
-		return [(x, y) for x in range(9) for y in range(9) if self.is_legal(state,x, y)]
-	
+		explore = []
+		for j,k in enumerate(state['macroboard']):
+			if k == -1:
+				for i1 in range(3):
+					for i2 in range(3):
+						explore.append(((j%3)*3+i1,(j/3)*3+i2))
+			else:
+				continue
+
+		return [(x, y) for x,y in explore if state['board'][9*y+x] == 0]			
+
 
 	def deepish_copy(self,state):
 		'''
@@ -89,10 +98,12 @@ class Position:
 		#state_copy = copy.deepcopy(state)
 		state_copy = self.deepish_copy(state)
 		pid = state_copy['internal_pid']
+		# here mbx/mby mean the maxi location
+		# which of the 3by3s was played in?
 		x=move[0]
 		y=move[1]
-		mbx = x % 3
-		mby = y % 3
+		mbx = x / 3
+		mby = y / 3
 		j = mby * 3 + mbx
 		#mbx, mby = x/3, y/3
 		#self.macroboard[3*mby+mbx] = -1
@@ -108,8 +119,8 @@ class Position:
 
 
 	def determine_macroboard(self,state,move,pid):
-		# here mbx,mby mean the mini location -
-		# where in the big sq did the move go?
+		# here mbx,mby mean the mini location
+		# where in the small sq did the move go?
 		x = move[0]
 		y = move[1]
 		mbx = x % 3
@@ -124,39 +135,52 @@ class Position:
 		return state
 
 
-	def get_mini_board(self,state,move):
-		x = move[0]
-		y = move[1]
-		mbx, mby = x/3, y/3
-		board = state['board']
-		mini_board = [board[mby*27+mbx*3+0:mby*27+mbx*3+3],
-			board[mby*27+mbx*3+9:mby*27+mbx*3+12],
-				board[mby*27+mbx*3+18:mby*27+mbx*3+21]]
-		mini_board = list(itertools.chain(*mini_board))
-		return mini_board,mbx,mby
+	def get_mini_board(self,j):
+		# j is the number 0:80 determining which cell was played.
+		# mbx/y are for which of the 3b3s was played in.
+
+		mbx, mby = j%3, j/3
+		mini_board = [0 for i in range(9)]
+		for i1 in range(3):
+			for i2 in range(3):
+				mini_board[i1*3+i2] = ((mby *3 + i1) * 9 + mbx * 3 + i2 )
+		return mini_board
 
 
 	def determine_win_macroboard(self,state,move,pid):
-		mini_board,mbx,mby = self.get_mini_board(state,move)
-		
+		#mini_board,mbx,mby = self.get_mini_board(move)
+		x = move[0]
+		y = move[1]
+		mbx = x / 3
+		mby = y / 3
+		j = mby * 3 + mbx
+		mini_board = self.mini_board_list[j]
+		#x,y here are for getting z [0,9] which is where in the 3by3
+		# the move was placed.
 		x = move[0] % 3
 		y = move[1] % 3
 		z = y*3+x
-		
+
 		combos = self.win_combos2[z]
 		for combo in combos:
+			success = True
 			for x in combo:
-				if x != pid:
+				if state['board'][mini_board[x]] != pid:
+					success = False
 					break
 				else:
 					continue
+			if success:
 				return pid
 
+		success = True
 		for x in xrange(9):
-			if mini_board[x] == 0:
+			if state['board'][mini_board[x]] == 0:
+				success = False
 				break
 			else:
 				continue
+		if success:
 			return 0
 		return -1
 

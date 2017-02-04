@@ -7,7 +7,7 @@ class RandomBot:
 	def get_move(self, pos,state, tleft):
 		
 		lmoves = pos.legal_moves(state)
-		rm = 1#randint(0, len(lmoves)-1)
+		rm = randint(0, len(lmoves)-1)
 		return lmoves[rm]
 
 

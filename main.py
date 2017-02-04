@@ -62,7 +62,7 @@ def play_game(pos,state,verbose=True,*players):
 
 	tleft=1000
 	counter = 0
-	while counter ==0:
+	while True:
 		for player in players:
 
 			pid = player.myid
@@ -91,7 +91,7 @@ def play_game(pos,state,verbose=True,*players):
 			term = pos.terminal_state(state)
 			if term != -1:
 				return term
-		counter = 1
+		#counter = 1
 
 
 if __name__ == '__main__':
@@ -107,22 +107,19 @@ if __name__ == '__main__':
 		'internal_pid': 1}
 	#state = StateObject()
 	pos = Position()
-	bot1 = RandomBot()
-	bot2 = AlphabetaBot(0,6)
+	bot1 = AlphabetaBot(0,4)
+	bot2 = AlphabetaBot(0,4)
+	#bot2 = RandomBot()
 
 	bot1.myid = 1
 	bot2.myid = 2
 	bot1.oppid = 2	
 	bot2.oppid = 1
-	
 
 	t0 = time.time()
 
-	outcome = play_game(pos,state,False,bot1,bot2)
+	outcome = play_game(pos,state,True,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0
-
-
-
 
