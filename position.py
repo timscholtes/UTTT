@@ -39,12 +39,12 @@ class Position:
 		[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 		self.internal_pid = internal_pid
 
-	# def __deepcopy__(self, memo):
+	def __deepcopy__(self, memo):
 		
-	# 	return Position(copy.deepcopy(self.board,memo),
-	# 		copy.deepcopy(self.macroboard,memo),
-	# 		copy.deepcopy(self.win_macroboard,memo),
-	# 		copy.deepcopy(self.internal_pid))
+		return Position(copy.deepcopy(self.board,memo),
+			copy.deepcopy(self.macroboard,memo),
+			copy.deepcopy(self.win_macroboard,memo),
+			copy.deepcopy(self.internal_pid))
 
 	def parse_field(self, fstr):
 		flist = fstr.replace(';', ',').split(',')
