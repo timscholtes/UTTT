@@ -26,12 +26,6 @@ class Position:
 		macroboard=[-1 for i in range(9)],
 		win_macroboard=[-1 for i in range(9)],
 		internal_pid=1):
-		# self.board = [0 for i in range(81)]
-		# self.macroboard = [-1 for i in range(9)]
-		# self.win_macroboard = [-1 for i in range(9)]
-		# self.win_combos = [range(3),range(3,6),range(6,9),
-		# [0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
-		# self.internal_pid = 1
 		self.board = board
 		self.macroboard = macroboard
 		self.win_macroboard = win_macroboard

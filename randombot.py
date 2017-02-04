@@ -88,12 +88,6 @@ class AlphabetaBot:
 		cutoff_test = (lambda pos,depth: depth>self.d or pos.terminal_test())
 		
 		action_states = self.successors(pos)
-
-		for a,s in action_states:
-			print a
-			s.get_board()
-
-
 		states  = [i[1] for i in action_states]
 		actions = [i[0] for i in action_states]
 

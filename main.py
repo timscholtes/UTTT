@@ -63,7 +63,7 @@ def play_game(pos,verbose=True,*players):
 
 	tleft=1000
 	counter = 0
-	while counter == 0:
+	while True:
 		for player in players:
 
 			pid = player.myid
@@ -92,7 +92,7 @@ def play_game(pos,verbose=True,*players):
 			term = pos.terminal_state(pid)
 			if term != -1:
 				return term
-		counter = 1
+
 
 
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
 	pos = Position()
 	bot1 = RandomBot()
-	bot2 = AlphabetaBot(0,6)
+	bot2 = AlphabetaBot(0,2)
 
 	bot1.myid = 1
 	bot2.myid = 2
