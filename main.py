@@ -61,11 +61,12 @@ def play_game(pos,verbose=True,*players):
 		The player id (pid) of the victorious player, or 0 for a draw.
 	"""
 
-
-	pid = 1
 	tleft=1000
 	while True:
 		for player in players:
+
+			pid = player.myid
+			# ----- PRINTING START -----
 			if verbose:
 				print '_'*50
 				print 'New go for:',pid
@@ -76,23 +77,21 @@ def play_game(pos,verbose=True,*players):
 				print 'current win macroboard'
 				pos.get_win_macroboard()
 				print 'legal moves:',pos.legal_moves()
-				
-			x,y = player.get_move(pos,tleft)
-			if verbose:
-				print 'player:',pid,'makes move:',x,y
-			pos.make_move(x,y,pid)
-			# update win macroboard
-			pos.determine_win_macroboard(x,y,pid)
-			# determine allowable next move:
-			pos.determine_macroboard(x,y,pid)
+			# ----- PRINTING END -----
 
+			move = player.get_move(pos,tleft)
+			if verbose:
+				print 'player:',pid,'makes move:',move[0],move[1]
+			# make the move - 
+			# this will now update the game state too!
+			# This was needed for game successor search.
+			pos.make_move(move,pid)
 
 			# check terminal state
 			term = pos.terminal_state(pid)
 			if term != -1:
 				return term
 
-			pid = 3 - pid
 
 
 
@@ -102,11 +101,17 @@ if __name__ == '__main__':
 	import sys
 	from position import Position
 	from randombot import RandomBot
+	from randombot import AlphabetaBot
 
 
 	pos = Position()
 	bot1 = RandomBot()
-	bot2 = RandomBot()
+	bot2 = AlphabetaBot(0,4)
+
+	bot1.myid = 1
+	bot2.myid = 2
+	bot1.oppid = 2	
+	bot2.oppid = 1
 	
 	outcome = play_game(pos,200,bot1,bot2)
 	print 'winner is:',outcome
