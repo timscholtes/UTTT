@@ -67,31 +67,30 @@ def play_game(pos,verbose=True,*players):
 	while True:
 		for player in players:
 			if verbose:
-				print pid
-				print pos.legal_moves()
+				print '_'*50
+				print 'New go for:',pid
+				print 'board:'
 				pos.get_board()
+				print 'move macroboard'
 				pos.get_macroboard()
+				print 'current win macroboard'
 				pos.get_win_macroboard()
+				print 'legal moves:',pos.legal_moves()
+				
 			x,y = player.get_move(pos,tleft)
 			if verbose:
 				print 'player:',pid,'makes move:',x,y
 			pos.make_move(x,y,pid)
-
+			# update win macroboard
+			pos.determine_win_macroboard(x,y,pid)
 			# determine allowable next move:
 			pos.determine_macroboard(x,y,pid)
-			# mbx = x / 3
-			# mby = y / 3
-			# j = mby * 3 + mbx
-			# if pos.win_macroboard[j] == -1:
-			# 	pos.macroboard = [-1 if i == j else 0 for i in range(9)]
-			# else:
-			# 	pos.macroboard = [-1 for i in range(9)]
-			pos.determine_win_macroboard(x,y,pid)
+
 
 			# check terminal state
 			term = pos.terminal_state(pid)
-			if term:
-				return pid
+			if term != -1:
+				return term
 
 			pid = 3 - pid
 

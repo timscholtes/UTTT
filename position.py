@@ -25,9 +25,9 @@ class Position:
 		self.board = [0 for i in range(81)]
 		self.macroboard = [-1 for i in range(9)]
 		self.win_macroboard = [-1 for i in range(9)]
-		self.win_combos = [range(3),range(2,5),range(5,8),
+		self.win_combos = [range(3),range(3,6),range(6,9),
 		[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
-	
+		print self.win_combos
 	def parse_field(self, fstr):
 		flist = fstr.replace(';', ',').split(',')
 		self.board = [ int(f) for f in flist ]
@@ -104,7 +104,11 @@ class Position:
 			pass
 
 	def terminal_state(self,pid):
+		# determine overall draw:
+		if all(x != -1 for x in self.win_macroboard):
+			return 0
 		for combos in self.win_combos:
 			if all(self.win_macroboard[x] == pid for x in combos):
-				return True
+				return pid
+		return -1
 
