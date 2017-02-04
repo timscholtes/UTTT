@@ -42,7 +42,7 @@ def parse_command(instr, bot, pos):
 	return ''
 
 
-def play_game(pos,verbose=True,*players):
+def play_game(pos,state,verbose=True,*players):
 	""" Runs a game from scratch
 
 	Runs a game from scratch given the position class, max counter and 
@@ -72,32 +72,27 @@ def play_game(pos,verbose=True,*players):
 				print '_'*50
 				print 'New go for:',pid
 				print 'board:'
-				pos.get_board()
+				pos.get_board(state)
 				print 'move macroboard'
-				pos.get_macroboard()
+				pos.get_macroboard(state)
 				print 'current win macroboard'
-				pos.get_win_macroboard()
-				print 'legal moves:',pos.legal_moves()
+				pos.get_win_macroboard(state)
+				print 'legal moves:',pos.legal_moves(state)
 			# ----- PRINTING END -----
 
-			move = player.get_move(pos,tleft)
+			move = player.get_move(pos,state,tleft)
 			if verbose:
 				print 'player:',pid,'makes move:',move[0],move[1]
 			# make the move - 
 			# this will now update the game state too!
 			# This was needed for game successor search.
-			pos.make_move(move,pid)
+			state = pos.make_move(state,move)
 
 			# check terminal state
-			term = pos.terminal_state(pid)
+			term = pos.terminal_state(state)
 			if term != -1:
 				return term
 		counter = 1
-
-
-
-
-
 
 
 if __name__ == '__main__':
@@ -107,6 +102,10 @@ if __name__ == '__main__':
 	from randombot import AlphabetaBot
 	import time
 
+	state = {'board': [0 for i in range(81)],
+		'macroboard': [-1 for i in range(9)],
+		'win_macroboard': [-1 for i in range(9)],
+		'internal_pid': 1}
 	pos = Position()
 	bot1 = RandomBot()
 	bot2 = AlphabetaBot(0,6)
@@ -116,8 +115,10 @@ if __name__ == '__main__':
 	bot1.oppid = 2	
 	bot2.oppid = 1
 	
+
 	t0 = time.time()
-	outcome = play_game(pos,200,bot1,bot2)
+
+	outcome = play_game(pos,state,200,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0
