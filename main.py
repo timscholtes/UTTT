@@ -50,7 +50,6 @@ def play_game(pos,state,verbose=True,*players):
 	get_move(). They must be classes so that they can otherwise retrieve stored
 	data, such as a neural net, etc.
 
-
 	Args:
 		pos: an instance of the Position() class
 		verbose: Whether or not to print to console the state of the game each move.
@@ -63,7 +62,7 @@ def play_game(pos,state,verbose=True,*players):
 
 	tleft=1000
 	counter = 0
-	while counter == 0:
+	while counter ==0:
 		for player in players:
 
 			pid = player.myid
@@ -98,7 +97,6 @@ def play_game(pos,state,verbose=True,*players):
 if __name__ == '__main__':
 
 	from position import Position
-	from position import StateObject
 	from randombot import RandomBot
 	from randombot import AlphabetaBot
 	import time
@@ -120,7 +118,7 @@ if __name__ == '__main__':
 
 	t0 = time.time()
 
-	outcome = play_game(pos,state,200,bot1,bot2)
+	outcome = play_game(pos,state,False,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0

@@ -40,6 +40,16 @@ class Position:
 	def __init__(self):
 		self.win_combos = [range(3),range(3,6),range(6,9),
 		[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
+		self.win_combos2 = {0:((1,2),(3,6),(4,8)),
+		1:((0,2),(4,7)),
+		2:((0,1),(5,8),(4,6)),
+		3:((0,6),(4,5)),
+		4:((1,7),(3,5),(0,8),(2,6)),
+		5:((3,4),(2,8)),
+		6:((0,3),(7,8),(2,4)),
+		7:((1,4),(6,8)),
+		8:((6,7),(2,5))}
+
 
 
 	def parse_field(self, fstr):
@@ -59,20 +69,20 @@ class Position:
 	
 
 	def deepish_copy(self,state):
-	    '''
-	    much, much faster than deepcopy, for a dict of the simple python types.
-	    '''
-	    out = dict().fromkeys(state)
-	    for k,v in state.iteritems():
-	        try:
-	            out[k] = v.copy()   # dicts, sets
-	        except AttributeError:
-	            try:
-	                out[k] = v[:]   # lists, tuples, strings, unicode
-	            except TypeError:
-	                out[k] = v      # ints
+		'''
+		much, much faster than deepcopy, for a dict of the simple python types.
+		'''
+		out = dict().fromkeys(state)
+		for k,v in state.iteritems():
+			# try:
+			#     out[k] = v.copy()   # dicts, sets
+			# except AttributeError:
+			try:
+				out[k] = v[:]   # lists, tuples, strings, unicode
+			except TypeError:
+				out[k] = v      # ints
 	 
-	    return out
+		return out
  
 
 	def make_move(self,state, move):
@@ -81,13 +91,16 @@ class Position:
 		pid = state_copy['internal_pid']
 		x=move[0]
 		y=move[1]
+		mbx = x % 3
+		mby = y % 3
+		j = mby * 3 + mbx
 		#mbx, mby = x/3, y/3
 		#self.macroboard[3*mby+mbx] = -1
 		state_copy['board'][9*y+x] = pid
 
 		#Update situation for next player
 		state_copy['internal_pid'] = 3-state_copy['internal_pid']
-		state_copy = self.determine_win_macroboard(state_copy,move,pid)
+		state_copy['win_macroboard'][j] = self.determine_win_macroboard(state_copy,move,pid)
 		# determine allowable next move:
 		state_copy = self.determine_macroboard(state_copy,move,pid)
 		return state_copy
@@ -111,29 +124,59 @@ class Position:
 		return state
 
 
-	def determine_win_macroboard(self,state,move,pid):
+	def get_mini_board(self,state,move):
 		x = move[0]
 		y = move[1]
 		mbx, mby = x/3, y/3
-		mini_board = [state['board'][mby*27+mbx*3+0:mby*27+mbx*3+3],
-			state['board'][mby*27+mbx*3+9:mby*27+mbx*3+12],
-				state['board'][mby*27+mbx*3+18:mby*27+mbx*3+21]]
+		board = state['board']
+		mini_board = [board[mby*27+mbx*3+0:mby*27+mbx*3+3],
+			board[mby*27+mbx*3+9:mby*27+mbx*3+12],
+				board[mby*27+mbx*3+18:mby*27+mbx*3+21]]
 		mini_board = list(itertools.chain(*mini_board))
-		for combo in self.win_combos:
-			if all(mini_board[x] == pid for x in combo):
-				state['win_macroboard'][3*mby+mbx] = pid
-				pass
-		if all(mini_board[x] != 0 for x in range(9)):
-			state['win_macroboard'][3*mby+mbx] = 0
-		return state
+		return mini_board,mbx,mby
+
+
+	def determine_win_macroboard(self,state,move,pid):
+		mini_board,mbx,mby = self.get_mini_board(state,move)
+		
+		x = move[0] % 3
+		y = move[1] % 3
+		z = y*3+x
+		
+		combos = self.win_combos2[z]
+		for combo in combos:
+			for x in combo:
+				if x != pid:
+					break
+				else:
+					continue
+				return pid
+
+		for x in xrange(9):
+			if mini_board[x] == 0:
+				break
+			else:
+				continue
+			return 0
+		return -1
+
 
 	def terminal_test(self,state):
-		if all(x != -1 for x in state['win_macroboard']):
-			return True
+		pid = state['internal_pid']
+		for x in state['win_macroboard']:
+			if x == -1:
+				return False
+
+		#if all(x != -1 for x in state['win_macroboard']):
+		#	return True
 		for combos in self.win_combos:
-			if all(state['win_macroboard'][x] == pid for x in combos for pid in (1,2)):
-				return True
-		return False
+			for x in combos:
+				if state['win_macroboard'][x] != pid:
+					return False
+		#	if all(state['win_macroboard'][x] == pid for x in combos for pid in (1,2)):
+		#		return True 
+		
+		return True
 
 	def terminal_state(self,state):
 		pid = state['internal_pid']
