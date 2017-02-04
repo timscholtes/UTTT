@@ -3,7 +3,7 @@ import copy
 
 class StateObject:
 
-
+	# potentially, instead
 	def __init__(self,
 		board = [0 for i in range(81)],
 		macroboard = [-1 for i in range(9)],
@@ -56,9 +56,28 @@ class Position:
 
 	def legal_moves(self,state):
 		return [(x, y) for x in range(9) for y in range(9) if self.is_legal(state,x, y)]
-		
+	
+
+	def deepish_copy(self,state):
+	    '''
+	    much, much faster than deepcopy, for a dict of the simple python types.
+	    '''
+	    out = dict().fromkeys(state)
+	    for k,v in state.iteritems():
+	        try:
+	            out[k] = v.copy()   # dicts, sets
+	        except AttributeError:
+	            try:
+	                out[k] = v[:]   # lists, tuples, strings, unicode
+	            except TypeError:
+	                out[k] = v      # ints
+	 
+	    return out
+ 
+
 	def make_move(self,state, move):
-		state_copy = copy.deepcopy(state)
+		#state_copy = copy.deepcopy(state)
+		state_copy = self.deepish_copy(state)
 		pid = state_copy['internal_pid']
 		x=move[0]
 		y=move[1]

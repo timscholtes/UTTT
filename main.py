@@ -98,6 +98,7 @@ def play_game(pos,state,verbose=True,*players):
 if __name__ == '__main__':
 
 	from position import Position
+	from position import StateObject
 	from randombot import RandomBot
 	from randombot import AlphabetaBot
 	import time
@@ -106,6 +107,7 @@ if __name__ == '__main__':
 		'macroboard': [-1 for i in range(9)],
 		'win_macroboard': [-1 for i in range(9)],
 		'internal_pid': 1}
+	#state = StateObject()
 	pos = Position()
 	bot1 = RandomBot()
 	bot2 = AlphabetaBot(0,6)
