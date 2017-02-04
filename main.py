@@ -1,3 +1,19 @@
+""" Run a game of UTTT
+
+This starts from the default random bot from theaigames.com.
+
+The parse_command function is for taking instruction from the
+game server, and instructing the various module functions to operate
+depending on the instruction.
+
+For training, we will ignore this, as we don't want to have the overhead 
+of passing instruction via string commands, rather we're going to use
+a repeating while statement and player loop, with position class updates
+to proceed with the game.
+
+The function 'play_game' does exactly this. We will further develop logic 
+for the learning process here.
+"""
 
 def parse_command(instr, bot, pos):
 	if instr.startswith('action move'):
@@ -26,31 +42,50 @@ def parse_command(instr, bot, pos):
 	return ''
 
 
-def play_game(pos,max_counter,*players):
+def play_game(pos,verbose=True,*players):
+	""" Runs a game from scratch
+
+	Runs a game from scratch given the position class, max counter and 
+	a pair of players, which themselves are classes, with the method
+	get_move(). They must be classes so that they can otherwise retrieve stored
+	data, such as a neural net, etc.
+
+
+	Args:
+		pos: an instance of the Position() class
+		verbose: Whether or not to print to console the state of the game each move.
+		*players: the varaiable length (2 or more) player classes.
+			For UTTT this should be just 2 players.
+
+	Returns:
+		The player id (pid) of the victorious player, or 0 for a draw.
+	"""
+
+
 	pid = 1
 	tleft=1000
-	counter = 0
-	while counter < max_counter:
-		counter += 1
-		print 'counter:',counter
+	while True:
 		for player in players:
-			print pid
-			print pos.legal_moves()
-			pos.get_board()
-			pos.get_macroboard()
-			pos.get_win_macroboard()
+			if verbose:
+				print pid
+				print pos.legal_moves()
+				pos.get_board()
+				pos.get_macroboard()
+				pos.get_win_macroboard()
 			x,y = player.get_move(pos,tleft)
-			print 'player:',pid,'makes move:',x,y
+			if verbose:
+				print 'player:',pid,'makes move:',x,y
 			pos.make_move(x,y,pid)
 
 			# determine allowable next move:
-			mbx = x / 3
-			mby = y / 3
-			j = mby * 3 + mbx
-			if pos.win_macroboard[j] == -1:
-				pos.macroboard = [-1 if i == j else 0 for i in range(9)]
-			else:
-				pos.macroboard = [-1 for i in range(9)]
+			pos.determine_macroboard(x,y,pid)
+			# mbx = x / 3
+			# mby = y / 3
+			# j = mby * 3 + mbx
+			# if pos.win_macroboard[j] == -1:
+			# 	pos.macroboard = [-1 if i == j else 0 for i in range(9)]
+			# else:
+			# 	pos.macroboard = [-1 for i in range(9)]
 			pos.determine_win_macroboard(x,y,pid)
 
 			# check terminal state
