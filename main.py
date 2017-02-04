@@ -62,7 +62,8 @@ def play_game(pos,verbose=True,*players):
 	"""
 
 	tleft=1000
-	while True:
+	counter = 0
+	while counter == 0:
 		for player in players:
 
 			pid = player.myid
@@ -91,6 +92,8 @@ def play_game(pos,verbose=True,*players):
 			term = pos.terminal_state(pid)
 			if term != -1:
 				return term
+		counter = 1
+
 
 
 
@@ -98,28 +101,26 @@ def play_game(pos,verbose=True,*players):
 
 
 if __name__ == '__main__':
-	import sys
+
 	from position import Position
 	from randombot import RandomBot
 	from randombot import AlphabetaBot
-
+	import time
 
 	pos = Position()
 	bot1 = RandomBot()
-	bot2 = AlphabetaBot(0,4)
+	bot2 = AlphabetaBot(0,6)
 
 	bot1.myid = 1
 	bot2.myid = 2
 	bot1.oppid = 2	
 	bot2.oppid = 1
 	
+	t0 = time.time()
 	outcome = play_game(pos,200,bot1,bot2)
+	t1 = time.time()
 	print 'winner is:',outcome
-
-
-	
-
-
+	print t1-t0
 
 
 

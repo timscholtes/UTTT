@@ -7,7 +7,7 @@ class RandomBot:
 	def get_move(self, pos, tleft):
 		
 		lmoves = pos.legal_moves()
-		rm = randint(0, len(lmoves)-1)
+		rm = 1#randint(0, len(lmoves)-1)
 		return lmoves[rm]
 
 
@@ -88,6 +88,12 @@ class AlphabetaBot:
 		cutoff_test = (lambda pos,depth: depth>self.d or pos.terminal_test())
 		
 		action_states = self.successors(pos)
+
+		for a,s in action_states:
+			print a
+			s.get_board()
+
+
 		states  = [i[1] for i in action_states]
 		actions = [i[0] for i in action_states]
 
