@@ -42,7 +42,7 @@ def parse_command(instr, bot, pos):
 	return ''
 
 
-def play_game(pos,state,verbose=True,*players):
+def play_game(pos,nnets,verbose=False,*players):
 	""" Runs a game from scratch
 
 	Runs a game from scratch given the position class, max counter and 
@@ -59,9 +59,12 @@ def play_game(pos,state,verbose=True,*players):
 	Returns:
 		The player id (pid) of the victorious player, or 0 for a draw.
 	"""
-
 	tleft=1000
-	counter = 0
+	state = {'board': [0 for i in range(81)],
+	'macroboard': [-1 for i in range(9)],
+	'win_macroboard': [-1 for i in range(9)],
+	'internal_pid': 1}
+
 	while True:
 		for player in players:
 
@@ -79,14 +82,13 @@ def play_game(pos,state,verbose=True,*players):
 				print 'legal moves:',pos.legal_moves(state)
 			# ----- PRINTING END -----
 
-			move = player.get_move(pos,state,tleft)
+			move = player.get_move(pos,state,nnets[pid])
 			if verbose:
 				print 'player:',pid,'makes move:',move[0],move[1]
 			# make the move - 
 			# this will now update the game state too!
 			# This was needed for game successor search.
 			state = pos.make_move(state,move)
-
 			# check terminal state
 			if pos.terminal_test(state,move):
 				if verbose:
@@ -98,7 +100,13 @@ def play_game(pos,state,verbose=True,*players):
 					print 'current win macroboard'
 					pos.get_win_macroboard(state)
 					print 'legal moves:',pos.legal_moves(state)
-				return pos.terminal_state(state)
+				outcome = [-1,-1]
+				winner = pos.terminal_state(state)
+				if winner == 0:
+					outcome = [0,0]
+				else:
+					outcome[winner-1] = 1
+				return outcome
 		#counter = 1
 
 
@@ -107,6 +115,7 @@ if __name__ == '__main__':
 	from position import Position
 	from randombot import RandomBot
 	from randombot import AlphabetaBot
+	from nn_methods import *
 	import time
 
 	state = {'board': [0 for i in range(81)],
@@ -115,20 +124,22 @@ if __name__ == '__main__':
 		'internal_pid': 1}
 	#state = StateObject()
 	pos = Position()
-	bot1 = AlphabetaBot(0,2)
-	bot2 = AlphabetaBot(0,2)
+	bot1 = AlphabetaBot(2)
+	bot2 = AlphabetaBot(2)
 	
-	# bot1 = RandomBot()
-	# bot2 = RandomBot()
+	bot1 = RandomBot()
+	bot2 = RandomBot()
 
 	bot1.myid = 1
 	bot2.myid = 2
 	bot1.oppid = 2
 	bot2.oppid = 1
 
+	nnets = {i: generate_player_nn() for i in range(1,3)}
+
 	t0 = time.time()
 
-	outcome = play_game(pos,state,True,bot1,bot2)
+	outcome = play_game(pos,nnets,True,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0

@@ -187,38 +187,34 @@ class Position:
 	def terminal_test(self,state,action):
 		pid = 3-state['internal_pid']
 
-		x = action[0] % 3
-		y = action[1] % 3
+		x = action[0] / 3
+		y = action[1] / 3
 		z = y*3+x
 
-		combos = self.win_combos2[z]
-		for combo in combos:
+		if state['win_macroboard'][z] == -1:
+			return False
+		else:
+			if state['win_macroboard'][z] == pid:
+				combos = self.win_combos2[z]
+				for combo in combos:
+					success = True
+					for x in combo:
+						if state['win_macroboard'][x] != pid:
+							success = False
+							break
+					if success:
+						return success
+
 			success = True
-			for x in combo:
-				if state['win_macroboard'][x] != pid:
+			for x in xrange(9):
+				if state['win_macroboard'][x] == -1:
 					success = False
 					break
-			if success:
-				return success
+				else:
+					continue
+			return success
 
-		# #for pid in (1,2):
-		# for combo in self.win_combos:
-		# 	success = True
-		# 	for x in combo:
-		# 		if state['win_macroboard'][x] != pid:
-		# 			success = False
-		# 			break
-		# 	if success:
-		# 		return success
-
-		success = True
-		for x in xrange(9):
-			if state['win_macroboard'][x] == -1:
-				success = False
-				break
-			else:
-				continue
-		return success
+			
 
 	def terminal_state(self,state):
 		pid = 3-state['internal_pid']
