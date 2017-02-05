@@ -88,9 +88,17 @@ def play_game(pos,state,verbose=True,*players):
 			state = pos.make_move(state,move)
 
 			# check terminal state
-			term = pos.terminal_state(state)
-			if term != -1:
-				return term
+			if pos.terminal_test(state,move):
+				if verbose:
+					print 'WINNER!'
+					print 'board:'
+					pos.get_board(state)
+					print 'move macroboard'
+					pos.get_macroboard(state)
+					print 'current win macroboard'
+					pos.get_win_macroboard(state)
+					print 'legal moves:',pos.legal_moves(state)
+				return pos.terminal_state(state)
 		#counter = 1
 
 
@@ -107,13 +115,15 @@ if __name__ == '__main__':
 		'internal_pid': 1}
 	#state = StateObject()
 	pos = Position()
-	bot1 = AlphabetaBot(0,4)
-	bot2 = AlphabetaBot(0,4)
-	#bot2 = RandomBot()
+	bot1 = AlphabetaBot(0,2)
+	bot2 = AlphabetaBot(0,2)
+	
+	# bot1 = RandomBot()
+	# bot2 = RandomBot()
 
 	bot1.myid = 1
 	bot2.myid = 2
-	bot1.oppid = 2	
+	bot1.oppid = 2
 	bot2.oppid = 1
 
 	t0 = time.time()

@@ -89,8 +89,7 @@ class Position:
 			try:
 				out[k] = v[:]   # lists, tuples, strings, unicode
 			except TypeError:
-				out[k] = v      # ints
-	 
+				out[k] = v      # ints	 
 		return out
  
 
@@ -105,20 +104,18 @@ class Position:
 		mbx = x / 3
 		mby = y / 3
 		j = mby * 3 + mbx
-		#mbx, mby = x/3, y/3
-		#self.macroboard[3*mby+mbx] = -1
 		state_copy['board'][9*y+x] = pid
 
 		#Update situation for next player
-		state_copy['internal_pid'] = 3-state_copy['internal_pid']
+		state_copy['internal_pid'] = 3-pid
 		state_copy['win_macroboard'][j] = self.determine_win_macroboard(state_copy,move,pid)
 		# determine allowable next move:
-		state_copy = self.determine_macroboard(state_copy,move,pid)
+		state_copy = self.determine_macroboard(state_copy,move)
 		return state_copy
 		
 
 
-	def determine_macroboard(self,state,move,pid):
+	def determine_macroboard(self,state,move):
 		# here mbx,mby mean the mini location
 		# where in the small sq did the move go?
 		x = move[0]
@@ -127,7 +124,9 @@ class Position:
 		mby = y % 3
 		j = mby * 3 + mbx
 		if state['win_macroboard'][j] == -1:
-			state['macroboard'] = [-1 if i == j else 0 for i in range(9)]
+			# faster to set all to 0, then put the one to -1 than list comp all.
+			state['macroboard'] = [0]*9
+			state['macroboard'][j] = -1
 		else:
 			# if the macro cell is won/lost/draw, then can go anywhere not
 			# already won/lost/draw
@@ -140,7 +139,7 @@ class Position:
 		# mbx/y are for which of the 3b3s was played in.
 
 		mbx, mby = j%3, j/3
-		mini_board = [0 for i in range(9)]
+		mini_board = [0]*9
 		for i1 in range(3):
 			for i2 in range(3):
 				mini_board[i1*3+i2] = ((mby *3 + i1) * 9 + mbx * 3 + i2 )
@@ -168,8 +167,8 @@ class Position:
 				if state['board'][mini_board[x]] != pid:
 					success = False
 					break
-				else:
-					continue
+			#	else:
+			#		continue
 			if success:
 				return pid
 
@@ -178,42 +177,62 @@ class Position:
 			if state['board'][mini_board[x]] == 0:
 				success = False
 				break
-			else:
-				continue
+			#else:
+			#	continue
 		if success:
 			return 0
 		return -1
 
 
-	def terminal_test(self,state):
-		pid = state['internal_pid']
-		for x in state['win_macroboard']:
-			if x == -1:
-				return False
+	def terminal_test(self,state,action):
+		pid = 3-state['internal_pid']
 
-		#if all(x != -1 for x in state['win_macroboard']):
-		#	return True
-		for combos in self.win_combos:
-			for x in combos:
+		x = action[0] % 3
+		y = action[1] % 3
+		z = y*3+x
+
+		combos = self.win_combos2[z]
+		for combo in combos:
+			success = True
+			for x in combo:
 				if state['win_macroboard'][x] != pid:
-					return False
-		#	if all(state['win_macroboard'][x] == pid for x in combos for pid in (1,2)):
-		#		return True 
-		
-		return True
+					success = False
+					break
+			if success:
+				return success
+
+		# #for pid in (1,2):
+		# for combo in self.win_combos:
+		# 	success = True
+		# 	for x in combo:
+		# 		if state['win_macroboard'][x] != pid:
+		# 			success = False
+		# 			break
+		# 	if success:
+		# 		return success
+
+		success = True
+		for x in xrange(9):
+			if state['win_macroboard'][x] == -1:
+				success = False
+				break
+			else:
+				continue
+		return success
 
 	def terminal_state(self,state):
-		pid = state['internal_pid']
+		pid = 3-state['internal_pid']
 		# determine overall draw:
-		if all(x != -1 for x in state['win_macroboard']):
-			return 0
+		#for pid in (1,2):
 		for combos in self.win_combos:
 			if all(state['win_macroboard'][x] == pid for x in combos):
 				return pid
-		return -1
+		if all(x != -1 for x in state['win_macroboard']):
+			return 0
+			
 
 	def terminal_util(self,state):
-		pid = state['internal_pid']
+		pid = 3-state['internal_pid']
 		outcome = self.terminal_state(state)
 		if outcome == pid:
 			return 1
