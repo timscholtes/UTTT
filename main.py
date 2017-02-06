@@ -42,14 +42,13 @@ def parse_command(instr, bot, pos):
 	return ''
 
 
-def play_game(pos,verbose=True,*players):
+def play_game(pos,nnets,verbose=False,*players):
 	""" Runs a game from scratch
 
 	Runs a game from scratch given the position class, max counter and 
 	a pair of players, which themselves are classes, with the method
 	get_move(). They must be classes so that they can otherwise retrieve stored
 	data, such as a neural net, etc.
-
 
 	Args:
 		pos: an instance of the Position() class
@@ -60,9 +59,12 @@ def play_game(pos,verbose=True,*players):
 	Returns:
 		The player id (pid) of the victorious player, or 0 for a draw.
 	"""
-
 	tleft=1000
-	counter = 0
+	state = {'board': [0 for i in range(81)],
+	'macroboard': [-1 for i in range(9)],
+	'win_macroboard': [-1 for i in range(9)],
+	'internal_pid': 1}
+
 	while True:
 		for player in players:
 
@@ -72,56 +74,70 @@ def play_game(pos,verbose=True,*players):
 				print '_'*50
 				print 'New go for:',pid
 				print 'board:'
-				pos.get_board()
+				pos.get_board(state)
 				print 'move macroboard'
-				pos.get_macroboard()
+				pos.get_macroboard(state)
 				print 'current win macroboard'
-				pos.get_win_macroboard()
-				print 'legal moves:',pos.legal_moves()
+				pos.get_win_macroboard(state)
+				print 'legal moves:',pos.legal_moves(state)
 			# ----- PRINTING END -----
 
-			move = player.get_move(pos,tleft)
+			move = player.get_move(pos,state,nnets[pid])
 			if verbose:
 				print 'player:',pid,'makes move:',move[0],move[1]
 			# make the move - 
 			# this will now update the game state too!
 			# This was needed for game successor search.
-			pos.make_move(move,pid)
-
+			state = pos.make_move(state,move)
 			# check terminal state
-			term = pos.terminal_state(pid)
-			if term != -1:
-				return term
 
-
-
-
-
-
+			if pos.terminal_test(state,move):
+				if verbose:
+					print 'WINNER!'
+					print 'board:'
+					pos.get_board(state)
+					print 'move macroboard'
+					pos.get_macroboard(state)
+					print 'current win macroboard'
+					pos.get_win_macroboard(state)
+					print 'legal moves:',pos.legal_moves(state)
+				outcome = [-1,-1]
+				winner = pos.terminal_state(state)
+				if winner == 0:
+					outcome = [0,0]
+				else:
+					outcome[winner-1] = 1
+				return outcome
 
 
 if __name__ == '__main__':
 
 	from position import Position
-	from randombot import RandomBot
-	from randombot import AlphabetaBot
+	from bots import RandomBot
+	from bots import AlphabetaBot
+	from nn_methods import *
 	import time
 
+	state = {'board': [0 for i in range(81)],
+		'macroboard': [-1 for i in range(9)],
+		'win_macroboard': [-1 for i in range(9)],
+		'internal_pid': 1}
+	#state = StateObject()
 	pos = Position()
-	bot1 = RandomBot()
-	bot2 = AlphabetaBot(0,2)
-
+	bot1 = AlphabetaBot(2)
+	bot2 = AlphabetaBot(2)
+	
 	bot1.myid = 1
 	bot2.myid = 2
-	bot1.oppid = 2	
+	bot1.oppid = 2
 	bot2.oppid = 1
-	
+
+	nnets = {i: generate_player_nn() for i in range(1,3)}
+
 	t0 = time.time()
-	outcome = play_game(pos,200,bot1,bot2)
+
+	outcome = play_game(pos,nnets,True,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0
-
-
-
 
