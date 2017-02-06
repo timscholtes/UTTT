@@ -77,3 +77,32 @@ class AlphabetaBot:
 	def get_move(self,pos,state,nn,tleft=100):
 		return self.alphabeta_search(pos,state,nn)
 
+
+
+class MCTSBot:
+
+	def __init__(self, board, **kwargs):
+		self.state = state
+		self.states = []
+
+	def update(self,state):
+		self.states.append(state)
+		pass
+
+	def get_move(self):
+		pass
+
+	def run_simulation(self):
+		pass
+
+
+
+
+
+
+
+
+
+
+
+
