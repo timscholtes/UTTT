@@ -43,22 +43,22 @@ def regeneration(prev_gen=None,spawn_ratio=3,N_players=15,sigma=0.05):
 				new_gen[len(new_gen)] = generate_player_nn(to_mutate=prev_gen[i],sigma=sigma)
 	return new_gen
 
-def state_to_input(state):
+def board_to_input(board):
 	
-	x = state['board'][:]+state['win_macroboard'][:]
+	x = board['microboard'][:]+board['win_macroboard'][:]
 	# fliperoo
-	if state['internal_pid'] == 2:
+	if board['internal_pid'] == 2:
 		for i in x:
 			if x[i] == 1:
 				x[i] = 2
 			if x[i] == 2:
 				x[i] == 1
-	x = x + state['macroboard'][:]
+	x = x + board['macroboard'][:]
 	return x
 
 
-def predict_nn(model, state):
-	x = state_to_input(state)
+def predict_nn(model, board):
+	x = board_to_input(board)
 	x = np.append(x,1)
 	W1, W2, W3 = model['W1'], model['W2'], model['W3']
 	# Forward propagation

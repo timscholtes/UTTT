@@ -8,28 +8,28 @@ depending on the instruction.
 
 For training, we will ignore this, as we don't want to have the overhead 
 of passing instruction via string commands, rather we're going to use
-a repeating while statement and player loop, with position class updates
+a repeating while boardment and player loop, with gameition class updates
 to proceed with the game.
 
 The function 'play_game' does exactly this. We will further develop logic 
 for the learning process here.
 """
 
-def parse_command(instr, bot, pos):
+def parse_command(instr, bot, game):
 	if instr.startswith('action move'):
 		time = int(instr.split(' ')[-1])
-		x, y = bot.get_move(pos, time)
-		pos.make_move()
+		x, y = bot.get_move(game, time)
+		game.make_move()
 		return 
 		#return 'place_move %d %d\n' % (x, y)
 	elif instr.startswith('update game field'):
 		fstr = instr.split(' ')[-1]
-		pos.parse_field(fstr)
+		game.parse_field(fstr)
 	elif instr.startswith('update game macroboard'):
 		mbstr = instr.split(' ')[-1]
-		pos.parse_macroboard(mbstr)
+		game.parse_macroboard(mbstr)
 	elif instr.startswith('update game move'):
-		pos.nmove = int(instr.split(' ')[-1])
+		game.nmove = int(instr.split(' ')[-1])
 	elif instr.startswith('settings your_botid'):
 		myid = int(instr.split(' ')[-1])
 		bot.myid = myid
@@ -42,17 +42,17 @@ def parse_command(instr, bot, pos):
 	return ''
 
 
-def play_game(pos,nnets,verbose=False,*players):
+def play_game(game,nnets,verbose=False,*players):
 	""" Runs a game from scratch
 
-	Runs a game from scratch given the position class, max counter and 
+	Runs a game from scratch given the gameition class, max counter and 
 	a pair of players, which themselves are classes, with the method
 	get_move(). They must be classes so that they can otherwise retrieve stored
 	data, such as a neural net, etc.
 
 	Args:
-		pos: an instance of the Position() class
-		verbose: Whether or not to print to console the state of the game each move.
+		game: an instance of the gameition() class
+		verbose: Whether or not to print to console the board of the game each move.
 		*players: the varaiable length (2 or more) player classes.
 			For UTTT this should be just 2 players.
 
@@ -60,49 +60,30 @@ def play_game(pos,nnets,verbose=False,*players):
 		The player id (pid) of the victorious player, or 0 for a draw.
 	"""
 	tleft=1000
-	state = {'board': [0 for i in range(81)],
+	board = {'microboard': [0 for i in range(81)],
 	'macroboard': [-1 for i in range(9)],
 	'win_macroboard': [-1 for i in range(9)],
-	'internal_pid': 1}
+	'next_turn': 1}
 
 	while True:
 		for player in players:
 
 			pid = player.myid
-			# ----- PRINTING START -----
-			if verbose:
-				print '_'*50
-				print 'New go for:',pid
-				print 'board:'
-				pos.get_board(state)
-				print 'move macroboard'
-				pos.get_macroboard(state)
-				print 'current win macroboard'
-				pos.get_win_macroboard(state)
-				print 'legal moves:',pos.legal_moves(state)
-			# ----- PRINTING END -----
 
-			move = player.get_move(pos,state,nnets[pid])
+			if verbose:
+				game.print_board_status(board)
+
+			move = player.get_move(game,board,nnets[pid])
 			if verbose:
 				print 'player:',pid,'makes move:',move[0],move[1]
-			# make the move - 
-			# this will now update the game state too!
-			# This was needed for game successor search.
-			state = pos.make_move(state,move)
-			# check terminal state
+			
+			board = game.make_move(board,move)
 
-			if pos.terminal_test(state,move):
+			if game.terminal_test(board,move):
 				if verbose:
 					print 'WINNER!'
-					print 'board:'
-					pos.get_board(state)
-					print 'move macroboard'
-					pos.get_macroboard(state)
-					print 'current win macroboard'
-					pos.get_win_macroboard(state)
-					print 'legal moves:',pos.legal_moves(state)
 				outcome = [-1,-1]
-				winner = pos.terminal_state(state)
+				winner = game.terminal_board(board)
 				if winner == 0:
 					outcome = [0,0]
 				else:
@@ -112,20 +93,19 @@ def play_game(pos,nnets,verbose=False,*players):
 
 if __name__ == '__main__':
 
-	from position import Position
-	from bots import RandomBot
-	from bots import AlphabetaBot
+	from game_rules import UTTT
+	import bots
 	from nn_methods import *
 	import time
 
-	state = {'board': [0 for i in range(81)],
+	board = {'microboard': [0 for i in range(81)],
 		'macroboard': [-1 for i in range(9)],
 		'win_macroboard': [-1 for i in range(9)],
-		'internal_pid': 1}
-	#state = StateObject()
-	pos = Position()
-	bot1 = AlphabetaBot(2)
-	bot2 = AlphabetaBot(2)
+		'next_turn': 1}
+	#board = boardObject()
+	game = UTTT()
+	bot1 = bots.AlphabetaBot(1)
+	bot2 = bots.AlphabetaBot(1)
 	
 	bot1.myid = 1
 	bot2.myid = 2
@@ -136,7 +116,7 @@ if __name__ == '__main__':
 
 	t0 = time.time()
 
-	outcome = play_game(pos,nnets,True,bot1,bot2)
+	outcome = play_game(game,nnets,True,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0

@@ -1,22 +1,22 @@
 import itertools
 import copy
 
-class StateObject:
+class boardObject:
 
 	# potentially, instead
 	def __init__(self,
 		board = [0 for i in range(81)],
 		macroboard = [-1 for i in range(9)],
 		win_macroboard = [-1 for i in range(9)],
-		internal_pid = 1):
+		next_turn = 1):
 		self.board = board
 		self.macroboard = macroboard
 		self.win_macroboard = win_macroboard
-		self.internal_pid = internal_pid
+		self.next_turn = next_turn
 
 
 
-class Position:
+class UTTT:
 	""" Contains game rules and updates.
 
 	UTTT is more complicated than TTT! We contain all methods for
@@ -30,7 +30,7 @@ class Position:
 	is not required to play in a region where there is already a win/loss/draw.
 
 	In the aigames.com version, a 0 in the macroboard is used for both a draw 
-	state, but also for macroboards where the player is not allowed to play.
+	board, but also for macroboards where the player is not allowed to play.
 
 	I also anticipate this win_macroboard may be a useful pre_compiled 
 	abstraction for training.
@@ -61,12 +61,12 @@ class Position:
 		mblist = mbstr.replace(';', ',').split(',')
 		self.macroboard = [ int(f) for f in mblist ]
 	
-	def is_legal(self,state, x, y):
-		return state['board'][9*y+x] == 0
+	def is_legal(self,board, x, y):
+		return board['microboard'][9*y+x] == 0
 
-	def legal_moves(self,state):
+	def legal_moves(self,board):
 		explore = []
-		for j,k in enumerate(state['macroboard']):
+		for j,k in enumerate(board['macroboard']):
 			if k == -1:
 				for i1 in range(3):
 					for i2 in range(3):
@@ -74,15 +74,15 @@ class Position:
 			else:
 				continue
 
-		return [(x, y) for x,y in explore if state['board'][9*y+x] == 0]			
+		return [(x, y) for x,y in explore if board['microboard'][9*y+x] == 0]			
 
 
-	def deepish_copy(self,state):
+	def deepish_copy(self,board):
 		'''
 		much, much faster than deepcopy, for a dict of the simple python types.
 		'''
-		out = dict().fromkeys(state)
-		for k,v in state.iteritems():
+		out = dict().fromkeys(board)
+		for k,v in board.iteritems():
 			# try:
 			#     out[k] = v.copy()   # dicts, sets
 			# except AttributeError:
@@ -93,10 +93,10 @@ class Position:
 		return out
  
 
-	def make_move(self,state, move):
-		#state_copy = copy.deepcopy(state)
-		state_copy = self.deepish_copy(state)
-		pid = state_copy['internal_pid']
+	def make_move(self,board, move):
+		#board_copy = copy.deepcopy(board)
+		board_copy = self.deepish_copy(board)
+		pid = board_copy['next_turn']
 		# here mbx/mby mean the maxi location
 		# which of the 3by3s was played in?
 		x=move[0]
@@ -104,18 +104,18 @@ class Position:
 		mbx = x / 3
 		mby = y / 3
 		j = mby * 3 + mbx
-		state_copy['board'][9*y+x] = pid
+		board_copy['microboard'][9*y+x] = pid
 
 		#Update situation for next player
-		state_copy['internal_pid'] = 3-pid
-		state_copy['win_macroboard'][j] = self.determine_win_macroboard(state_copy,move,pid)
+		board_copy['next_turn'] = 3-pid
+		board_copy['win_macroboard'][j] = self.determine_win_macroboard(board_copy,move,pid)
 		# determine allowable next move:
-		state_copy = self.determine_macroboard(state_copy,move)
-		return state_copy
+		board_copy = self.determine_macroboard(board_copy,move)
+		return board_copy
 		
 
 
-	def determine_macroboard(self,state,move):
+	def determine_macroboard(self,board,move):
 		# here mbx,mby mean the mini location
 		# where in the small sq did the move go?
 		x = move[0]
@@ -123,15 +123,15 @@ class Position:
 		mbx = x % 3
 		mby = y % 3
 		j = mby * 3 + mbx
-		if state['win_macroboard'][j] == -1:
+		if board['win_macroboard'][j] == -1:
 			# faster to set all to 0, then put the one to -1 than list comp all.
-			state['macroboard'] = [0]*9
-			state['macroboard'][j] = -1
+			board['macroboard'] = [0]*9
+			board['macroboard'][j] = -1
 		else:
 			# if the macro cell is won/lost/draw, then can go anywhere not
 			# already won/lost/draw
-			state['macroboard'] = [-1 if state['win_macroboard'][i] == -1 else 0 for i in range(9)]
-		return state
+			board['macroboard'] = [-1 if board['win_macroboard'][i] == -1 else 0 for i in range(9)]
+		return board
 
 
 	def get_mini_board(self,j):
@@ -146,7 +146,7 @@ class Position:
 		return mini_board
 
 
-	def determine_win_macroboard(self,state,move,pid):
+	def determine_win_macroboard(self,board,move,pid):
 		#mini_board,mbx,mby = self.get_mini_board(move)
 		x = move[0]
 		y = move[1]
@@ -164,7 +164,7 @@ class Position:
 		for combo in combos:
 			success = True
 			for x in combo:
-				if state['board'][mini_board[x]] != pid:
+				if board['microboard'][mini_board[x]] != pid:
 					success = False
 					break
 			#	else:
@@ -174,7 +174,7 @@ class Position:
 
 		success = True
 		for x in xrange(9):
-			if state['board'][mini_board[x]] == 0:
+			if board['microboard'][mini_board[x]] == 0:
 				success = False
 				break
 			#else:
@@ -184,22 +184,22 @@ class Position:
 		return -1
 
 
-	def terminal_test(self,state,action):
-		pid = 3-state['internal_pid']
+	def terminal_test(self,board,action):
+		pid = 3-board['next_turn']
 
 		x = action[0] / 3
 		y = action[1] / 3
 		z = y*3+x
 
-		if state['win_macroboard'][z] == -1:
+		if board['win_macroboard'][z] == -1:
 			return False
 		else:
-			if state['win_macroboard'][z] == pid:
+			if board['win_macroboard'][z] == pid:
 				combos = self.win_combos2[z]
 				for combo in combos:
 					success = True
 					for x in combo:
-						if state['win_macroboard'][x] != pid:
+						if board['win_macroboard'][x] != pid:
 							success = False
 							break
 					if success:
@@ -207,7 +207,7 @@ class Position:
 
 			success = True
 			for x in xrange(9):
-				if state['win_macroboard'][x] == -1:
+				if board['win_macroboard'][x] == -1:
 					success = False
 					break
 				else:
@@ -216,20 +216,20 @@ class Position:
 
 			
 
-	def terminal_state(self,state):
-		pid = 3-state['internal_pid']
+	def terminal_board(self,board):
+		pid = 3-board['next_turn']
 		# determine overall draw:
 		#for pid in (1,2):
 		for combos in self.win_combos:
-			if all(state['win_macroboard'][x] == pid for x in combos):
+			if all(board['win_macroboard'][x] == pid for x in combos):
 				return pid
-		if all(x != -1 for x in state['win_macroboard']):
+		if all(x != -1 for x in board['win_macroboard']):
 			return 0
 			
 
-	def terminal_util(self,state):
-		pid = 3-state['internal_pid']
-		outcome = self.terminal_state(state)
+	def terminal_util(self,board):
+		pid = 3-board['next_turn']
+		outcome = self.terminal_board(board)
 		if outcome == pid:
 			return 1
 		elif outcome == 3 - pid:
@@ -237,15 +237,26 @@ class Position:
 		else:
 			return 0
 
-	def successors(self,state):
+	def successors(self,board):
 		# worry about use of this will update pos in an irretrievable way
 		# maybe need to make copy
-		return [(move, self.make_move(state,move)) for move in self.legal_moves(state)]
+		return [(move, self.make_move(board,move)) for move in self.legal_moves(board)]
 
 
 	# ---- PRINTING FUNCTIONS START -----
-	def get_board(self,state):
-		X = state['board']
+	def print_board_status(self,board):
+		print '_'*50
+		print 'New go for:',board['next_turn']
+		print 'board:'
+		self.get_board(board)
+		print 'move macroboard'
+		self.get_macroboard(board)
+		print 'current win macroboard'
+		self.get_win_macroboard(board)
+		print 'legal moves:',self.legal_moves(board)
+
+	def get_board(self,board):
+		X = board['microboard']
 		for i in range(9):
 			if i in (3,6):
 				print '-'*30
@@ -257,14 +268,14 @@ class Position:
 			print ''.join(line)
 		pass
 
-	def get_macroboard(self,state):
+	def get_macroboard(self,board):
 		for row in range(3):
-			print state['macroboard'][row*3:(row+1)*3]
+			print board['macroboard'][row*3:(row+1)*3]
 		pass
 
-	def get_win_macroboard(self,state):
+	def get_win_macroboard(self,board):
 		for row in range(3):
-			print state['win_macroboard'][row*3:(row+1)*3]
+			print board['win_macroboard'][row*3:(row+1)*3]
 		pass
 	# ---- PRINTING FUNCTIONS END -----
 

@@ -1,13 +1,15 @@
 from random import randint
 from utils import *
-from position import Position
 from nn_methods import *
+import datetime
+from math import log, sqrt
+
 
 class RandomBot:
 	
-	def get_move(self, pos,state,nn, tleft=100):
+	def get_move(self, pos,board,nn, tleft=100):
 		
-		lmoves = pos.legal_moves(state)
+		lmoves = pos.legal_moves(board)
 		rm = randint(0, len(lmoves)-1)
 		return lmoves[rm]
 
@@ -20,23 +22,23 @@ class AlphabetaBot:
 		pass
 
 
-	def alphabeta_search(self,pos,state,nn):
-		"""Search state to determine best action; use alpha-beta pruning.
+	def alphabeta_search(self,pos,board,nn):
+		"""Search board to determine best action; use alpha-beta pruning.
 		This version cuts off search and uses an evaluation function."""
 
-		def depth_eval_fn(state,nn):
-			return predict_nn(nn,state)
+		def depth_eval_fn(board,nn):
+			return predict_nn(nn,board)
 
-		def max_value( state,alpha, beta, depth,a):
+		def max_value( board,alpha, beta, depth,a):
 			# manual cutoff tests should be faster than reevaluation
 			# it's mostly going to be depth!
 			if depth>self.d:
-				return depth_eval_fn(state,nn)
-			if pos.terminal_test(state,a):
-				return pos.terminal_util(state)
+				return depth_eval_fn(board,nn)
+			if pos.terminal_test(board,a):
+				return pos.terminal_util(board)
 
 			v = -infinity
-			GS = pos.successors(state)
+			GS = pos.successors(board)
 			for (a, s) in GS:
 				v = max(v, min_value(s, alpha, beta, depth+1,a))
 				if v >= beta:
@@ -44,15 +46,15 @@ class AlphabetaBot:
 				alpha = max(alpha, v)
 			return v
 
-		def min_value(state, alpha, beta, depth,a):
+		def min_value(board, alpha, beta, depth,a):
 			# manual cutoff tests should be faster than reevaluation
 			if depth>self.d:
-				return depth_eval_fn(state,nn)
-			if pos.terminal_test(state,a):
-				return pos.terminal_util(state)
+				return depth_eval_fn(board,nn)
+			if pos.terminal_test(board,a):
+				return pos.terminal_util(board)
 				
 			v = infinity
-			GS = pos.successors(state)
+			GS = pos.successors(board)
 			for (a, s) in GS:
 				v = min(v, max_value(s, alpha, beta, depth+1,a))
 				if v <= alpha:
@@ -60,42 +62,143 @@ class AlphabetaBot:
 				beta = min(beta, v)
 			return v
 
-		# The default test cuts off at depth d or at a terminal state
+		# The default test cuts off at depth d or at a terminal board
 		
-		action_states = pos.successors(state)
-		actions = [i[0] for i in action_states]
+		action_boards = pos.successors(board)
+		actions = [i[0] for i in action_boards]
 
 		# if there's only 1 available action, just take it
 		if len(actions) == 1:
 			action=actions[0]
 		else:
-			Z = argmax(action_states,lambda (a,s): min_value(s, -infinity, infinity, 0,a))
+			Z = argmax(action_boards,lambda (a,s): min_value(s, -infinity, infinity, 0,a))
 			action = actions[Z]
 		return action
 
 
-	def get_move(self,pos,state,nn,tleft=100):
-		return self.alphabeta_search(pos,state,nn)
+	def get_move(self,pos,board,nn,tleft=100):
+		return self.alphabeta_search(pos,board,nn)
 
 
 
 class MCTSBot:
+	"""
+	Credit here goes to Jeff Bradberry's excellent explanation of 
+	MCTS, found here:
+	https://jeffbradberry.com/posts/2015/09/intro-to-monte-carlo-tree-search/
+	"""
 
-	def __init__(self, board, **kwargs):
-		self.state = state
-		self.states = []
+	def __init__(self, game, **kwargs):
+		self.game = game
+		self.boards = []
 
-	def update(self,state):
-		self.states.append(state)
+		self.wins = {}
+		self.moves = {}
+
+		self.C = kwargs.get('C',1.41)
+
+		seconds = kwargs.get('time',30)
+		self.calculation_time = datetime.timedelta(seconds=seconds)
+		self.max_moves = kwargs.get('max_moves',100)
+
+	def update(self,board):
+		self.boards.append(board)
 		pass
 
-	def get_move(self):
-		pass
+	def get_move(self,board):
+		self.update(board)
+		self.max_depth = 0
+		board = self.boards[-1]
+		player = board[3]
+		legal = self.game.legal_moves(board)
 
-	def run_simulation(self):
-		pass
+		if not legal:
+			return
+		if len(legal) == 1:
+			return legal[0]
+
+		games = 0
+
+		begin = datetime.datetime.utcnow()
+		while datetime.datetime.utcnow()-begin < self.calculation_time:
+			self.run_sim()
+			games += 1
+		
+		action_boards = self.game.successors(board)
+
+		percent_wins,move = max(
+			(self.wins.get((player,S),0)/
+				self.wins.get((player,S),1),m)
+			for m,S in action_boards)
+
+		return move
+
+	def run_sim(self):
+		moves, wins = self.moves, self.wins
+		visited_boards = set()
+		boards_copy = self.boards[:]
+		board = boards_copy[-1]
+		player = board[3]
+
+		expand = True
+		for t in xrange(self.max_moves):
+			legal = self.game.legal_moves(board)
+			#move = choice(legal)
+			action_boards = self.game.successors(board)
+
+			if all(moves.get((player,S)) for m,S in action_boards):
+				log_total = log(
+					sum(moves[(player,S)] for p,S in action_boards))
+				value,move,board = max(
+					((wins[(player, S)] / moves[(player, S)]) + 
+						self.C * sqrt(log_total / moves[(player,S)]), p, S)
+					for p,S in action_boards
+					)
+			else:
+				move,board = action_boards[randint(0, len(legal)-1)]
 
 
+			#board = self.game.make_move(board,move)
+			boards_copy.append(board)
+
+			if expand and (player,board) not in self.moves:
+				expand = False
+				moves[(player,board)] = 0
+				wins[(player,board)] = 0
+				if t > self.max_depth:
+					self.max_depth = t
+
+			visited_boards.add((player,board))
+
+			player = board[3]
+			winner = self.game.terminal_test(board,move)
+			if winner:
+				break
+
+		for player, board in visited_boards:
+			if (player,board) not in self.moves:
+				continue
+			moves[(player,board)] += 1
+			if player == winner:
+				wins[(player,board)] += 1
+
+if __name__ == '__main__':
+
+	from game_rules import UTTT
+	board = {'microboard': [0 for i in range(81)],
+		'macroboard': [-1 for i in range(9)],
+		'win_macroboard': [-1 for i in range(9)],
+		'next_turn': 1}
+
+	board = [[0 for i in range(81)],
+	[-1 for i in range(9)],
+	[-1 for i in range(9)],
+	1]
+	#board = boardObject()
+	game = UTTT()
+	bot = MCTSBot(game)
+
+	bot.get_move(board)
 
 
 
