@@ -109,7 +109,7 @@ class MCTSBot:
 		self.update(board)
 		self.max_depth = 0
 		board = self.boards[-1]
-		player = board[3]
+		player = board['next_turn']
 		legal = self.game.legal_moves(board)
 
 		if not legal:
@@ -127,31 +127,53 @@ class MCTSBot:
 		action_boards = self.game.successors(board)
 
 		percent_wins,move = max(
-			(self.wins.get((player,S),0)/
-				self.wins.get((player,S),1),m)
+			(float(self.wins.get((player,self.listify(S)),0))/
+				self.moves.get((player,self.listify(S)),1),m)
 			for m,S in action_boards)
 
+		print games, datetime.datetime.utcnow() - begin
+		# Display the stats for each possible play.
+		for x in sorted(
+			((100 * self.wins.get((player, self.listify(S)), 0) /
+			  self.moves.get((player, self.listify(S)), 1),
+			  self.wins.get((player, self.listify(S)), 0),
+			  self.moves.get((player, self.listify(S)), 0), p)
+			 for p, S in action_boards),
+			reverse=True
+		):
+			print "{3}: {0:.2f}% ({1} / {2})".format(*x)
+
+		print "Maximum depth searched:", self.max_depth
+
 		return move
+
+	def listify(self,board):
+		return tuple(board['microboard']+
+		board['macroboard']+
+		board['win_macroboard'])
+
 
 	def run_sim(self):
 		moves, wins = self.moves, self.wins
 		visited_boards = set()
 		boards_copy = self.boards[:]
 		board = boards_copy[-1]
-		player = board[3]
+		player = board['next_turn']
 
 		expand = True
 		for t in xrange(self.max_moves):
+			if t > self.max_depth:
+				self.max_depth = t
 			legal = self.game.legal_moves(board)
 			#move = choice(legal)
 			action_boards = self.game.successors(board)
-
-			if all(moves.get((player,S)) for m,S in action_boards):
+			
+			if all(moves.get((player,self.listify(S))) for m,S in action_boards):
 				log_total = log(
-					sum(moves[(player,S)] for p,S in action_boards))
+					sum(moves[(player,self.listify(S))] for p,S in action_boards))
 				value,move,board = max(
-					((wins[(player, S)] / moves[(player, S)]) + 
-						self.C * sqrt(log_total / moves[(player,S)]), p, S)
+					((wins[(player, self.listify(S))] / moves[(player, self.listify(S))]) + 
+						self.C * sqrt(log_total / moves[(player,self.listify(S))]), p, S)
 					for p,S in action_boards
 					)
 			else:
@@ -161,18 +183,21 @@ class MCTSBot:
 			#board = self.game.make_move(board,move)
 			boards_copy.append(board)
 
-			if expand and (player,board) not in self.moves:
+			if expand and (player,self.listify(board)) not in self.moves:
 				expand = False
-				moves[(player,board)] = 0
-				wins[(player,board)] = 0
-				if t > self.max_depth:
-					self.max_depth = t
+				moves[(player,self.listify(board))] = 0
+				wins[(player,self.listify(board))] = 0
+				# if t > self.max_depth:
+				# 	self.max_depth = t
 
-			visited_boards.add((player,board))
+			visited_boards.add((player,self.listify(board)))
 
-			player = board[3]
-			winner = self.game.terminal_test(board,move)
-			if winner:
+			player = board['next_turn']
+			win_check = self.game.terminal_test(board,move)
+			if not win_check:
+				winner = 0
+			else:
+				winner = self.game.terminal_pid(board)
 				break
 
 		for player, board in visited_boards:
@@ -182,6 +207,7 @@ class MCTSBot:
 			if player == winner:
 				wins[(player,board)] += 1
 
+
 if __name__ == '__main__':
 
 	from game_rules import UTTT
@@ -190,15 +216,13 @@ if __name__ == '__main__':
 		'win_macroboard': [-1 for i in range(9)],
 		'next_turn': 1}
 
-	board = [[0 for i in range(81)],
-	[-1 for i in range(9)],
-	[-1 for i in range(9)],
-	1]
 	#board = boardObject()
 	game = UTTT()
-	bot = MCTSBot(game)
+	bot = MCTSBot(game,time=2,max_moves=50)
 
-	bot.get_move(board)
+	#print bot.listify(board)
+
+	print bot.get_move(board)
 
 
 

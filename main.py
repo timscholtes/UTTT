@@ -83,7 +83,7 @@ def play_game(game,nnets,verbose=False,*players):
 				if verbose:
 					print 'WINNER!'
 				outcome = [-1,-1]
-				winner = game.terminal_board(board)
+				winner = game.terminal_pid(board)
 				if winner == 0:
 					outcome = [0,0]
 				else:
@@ -104,8 +104,8 @@ if __name__ == '__main__':
 		'next_turn': 1}
 	#board = boardObject()
 	game = UTTT()
-	bot1 = bots.AlphabetaBot(1)
-	bot2 = bots.AlphabetaBot(1)
+	bot1 = bots.RandomBot()#AlphabetaBot(3)
+	bot2 = bots.RandomBot()#AlphabetaBot(3)
 	
 	bot1.myid = 1
 	bot2.myid = 2

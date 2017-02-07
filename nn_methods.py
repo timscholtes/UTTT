@@ -47,7 +47,7 @@ def board_to_input(board):
 	
 	x = board['microboard'][:]+board['win_macroboard'][:]
 	# fliperoo
-	if board['internal_pid'] == 2:
+	if board['next_turn'] == 2:
 		for i in x:
 			if x[i] == 1:
 				x[i] = 2

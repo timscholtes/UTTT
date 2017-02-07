@@ -216,7 +216,7 @@ class UTTT:
 
 			
 
-	def terminal_board(self,board):
+	def terminal_pid(self,board):
 		pid = 3-board['next_turn']
 		# determine overall draw:
 		#for pid in (1,2):
@@ -229,7 +229,7 @@ class UTTT:
 
 	def terminal_util(self,board):
 		pid = 3-board['next_turn']
-		outcome = self.terminal_board(board)
+		outcome = self.terminal_pid(board)
 		if outcome == pid:
 			return 1
 		elif outcome == 3 - pid:
