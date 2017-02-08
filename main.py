@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
 	t0 = time.time()
 
-	outcome = play_game(game,nnets,False,bot1,bot2)
+	outcome = play_game(game,nnets,True,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0

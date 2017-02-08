@@ -6,8 +6,8 @@ import json
 import multiprocessing as mp
 import os
 import time
-from position import Position
-from randombot import AlphabetaBot
+# from position import Position
+# from randombot import AlphabetaBot
 
 def generate_schedule(N_players,N_opponents):
 	X = {i: random.sample([x for x in range(N_players) if x!=i],N_opponents) for i in range(N_players)}
@@ -169,23 +169,98 @@ def parallel_evolve(N_gen,N_players,matches_per_player,carry_forward,sigma,d,num
 
 	return top_player
 
+
+class Reinforce:
+
+	def __init__(self,mini_batch_size,num_generations,
+		opponent_update_freq,nn_class,bot_class,game_class):
+		self.mini_batch_size = mini_batch_size
+		self.num_generations = num_generations
+		self.opponent_update_freq = opponent_update_freq
+		self.nn = nn_class
+		self.bot = bot_class
+		self.game = game_class()
+
+		self.policies = [self.bot([99,4,2,1],self.sigmoid,self.sigmoid_prime,self.game)]
+		self.main_policy = self.bot([99,4,2,1],self.sigmoid,self.sigmoid_prime,self.game)
+	def sigmoid(self,z):
+		return 1.0/(1.0+np.exp(-z))
+
+	def sigmoid_prime(self,z):
+		return sigmoid(z)*(1-sigmoid(z))
+
+	def batch_tournament(self):
+
+		opponent = np.random.choice(self.policies)
+		results=[]
+		# first pass
+		print 'running batch'
+		for match in xrange(self.mini_batch_size):
+			results.append(
+				self.game.play_game(True,False,self.main_policy,opponent)
+				)
+		print 'finished first pass'
+
+		return results
+
+
+
+	def update_mini_batch(self,results):
+
+		# with game results and moves, we can construct a vector of 
+		# actual outcomes (0's and 1's) for winners, 0's and -1's for losers
+		# versus feedforward probabilites
+
+		#Because of my construction, the x input for each is the game board
+		# each time.
+		# loop through game results (replaying) and run mini_batch each time.
+		# can be parallelised by working on each game separately.
+		
+		nabla_b = [np.zeros(b.shape) for b in self.biases]
+		nabla_w = [np.zeros(w.shape) for w in self.weights]
+
+		for x, y in mini_batch:
+			delta_nabla_b, delta_nabla_w = self.backprop(x, y)
+			nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+			nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+
+		# self.weights = [w-(eta/len(mini_batch))*nw 
+		# 				for w, nw in zip(self.weights, nabla_w)]
+		# self.biases = [b-(eta/len(mini_batch))*nb 
+		# 			   for b, nb in zip(self.biases, nabla_b)]
+
+
 if __name__ == '__main__':
 	num_cores = mp.cpu_count()
 
-	X = parallel_evolve(
-		N_gen=2,
-		N_players=4,
-		matches_per_player=1,
-		carry_forward=1,
-		sigma=0.05,
-		d=4,
-		num_cores=num_cores,
-		verbose=False)
+	# X = parallel_evolve(
+	# 	N_gen=2,
+	# 	N_players=4,
+	# 	matches_per_player=1,
+	# 	carry_forward=1,
+	# 	sigma=0.05,
+	# 	d=4,
+	# 	num_cores=num_cores,
+	# 	verbose=False)
 	
-	#schedule = generate_schedule(4,2)
-	# gen = regeneration(None,2,4)
-	# scores = play_tournament(schedule,gen,4,False)
-	# #scores = play_parallel_tourn(schedule,gen,4,1)
-	# print scores
+	# #schedule = generate_schedule(4,2)
+	# # gen = regeneration(None,2,4)
+	# # scores = play_tournament(schedule,gen,4,False)
+	# # #scores = play_parallel_tourn(schedule,gen,4,1)
+	# # print scores
+
+	from game_rules import UTTT
+	import bots
+	import random
+
+	reinforce = Reinforce(
+		mini_batch_size=500,
+		num_generations=1000,
+		opponent_update_freq=500,
+		nn_class=Network,
+		bot_class=bots.PolicyBot,
+		game_class=UTTT)
+
+	results = reinforce.batch_tournament()
 
 

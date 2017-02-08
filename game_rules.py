@@ -1,5 +1,6 @@
 import itertools
 import copy
+import numpy as np
 
 class boardObject:
 
@@ -241,6 +242,56 @@ class UTTT:
 		# worry about use of this will update pos in an irretrievable way
 		# maybe need to make copy
 		return [(move, self.make_move(board,move)) for move in self.legal_moves(board)]
+
+
+	def play_game(self,record=False,verbose=False,*players,**kwargs):
+
+		board = {'microboard': [0 for i in range(81)],
+		'macroboard': [-1 for i in range(9)],
+		'win_macroboard': [-1 for i in range(9)],
+		'next_turn': 1}
+		moves=[]
+
+		# flip for who goes first:
+		x = np.random.choice([1,2])
+		for player in players:
+			player.myid = x
+			player.oppid = 3 - x
+			x = 3 - x
+
+		while True:
+			for player in players:
+
+				pid = player.myid
+
+				if verbose:
+					self.print_board_status(board)
+
+				move = player.get_move(board)
+				
+				if record:
+					moves.append((pid,move))
+
+				if verbose:
+					print 'player:',pid,'makes move:',move[0],move[1]
+				
+				board = self.make_move(board,move)
+
+				if self.terminal_test(board,move):
+					if verbose:
+						print 'WINNER!'
+					#outcome = [-1,-1]
+					winner = self.terminal_pid(board)
+					# if winner == 0:
+					# 	outcome = [0,0]
+					# else:
+					# 	outcome[winner-1] = 1
+
+					if record:
+						return (winner,moves)
+					else:
+						return winner
+
 
 
 	# ---- PRINTING FUNCTIONS START -----

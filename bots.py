@@ -224,9 +224,14 @@ class  PolicyBot:
 
 	def feedforward(self, a):
 		for b, w in zip(self.biases, self.weights):
-			a = self.act_func(np.dot(w, a))
+			a = self.act_func(np.dot(w, a)+b)
 		return a
 	
+	def update_weights_biases(self,w_update,b_update):
+		self.weights = self.weights + w_update
+		self.biases = self.biases + b_update
+		pass
+		
 	def listify(self, board):
 		return np.asarray(board['microboard']+
 		board['macroboard']+
@@ -236,8 +241,7 @@ class  PolicyBot:
 		tot = sum(x)
 		return [y / tot for y in x]
 
-	def get_move(self, game,board, *args):
-
+	def get_move(self, board):
 		action_boards = self.game.successors(board)
 
 		outputs = self.softmax([float(self.feedforward(self.listify(b))) 
