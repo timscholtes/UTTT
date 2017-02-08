@@ -104,9 +104,18 @@ if __name__ == '__main__':
 		'next_turn': 1}
 	#board = boardObject()
 	game = UTTT()
-	bot1 = bots.RandomBot()#AlphabetaBot(3)
-	bot2 = bots.RandomBot()#AlphabetaBot(3)
+	# bot1 = bots.AlphabetaBot(3)
+	# bot2 = bots.AlphabetaBot(3)
 	
+	def sigmoid(z):
+		return 1.0/(1.0+np.exp(-z))
+
+	def sigmoid_prime(z):
+		return sigmoid(z)*(1-sigmoid(z))
+
+	bot1 = bots.PolicyBot([99,4,2,1],sigmoid,sigmoid_prime,game)
+	bot2 = bots.PolicyBot([99,4,2,1],sigmoid,sigmoid_prime,game)
+
 	bot1.myid = 1
 	bot2.myid = 2
 	bot1.oppid = 2
@@ -116,7 +125,7 @@ if __name__ == '__main__':
 
 	t0 = time.time()
 
-	outcome = play_game(game,nnets,True,bot1,bot2)
+	outcome = play_game(game,nnets,False,bot1,bot2)
 	t1 = time.time()
 	print 'winner is:',outcome
 	print t1-t0

@@ -1,16 +1,16 @@
-from random import randint
+import random
 from utils import *
 from nn_methods import *
 import datetime
 from math import log, sqrt
-
+import numpy as np
 
 class RandomBot:
 	
 	def get_move(self, pos,board,nn, tleft=100):
 		
 		lmoves = pos.legal_moves(board)
-		rm = randint(0, len(lmoves)-1)
+		rm = random.randint(0, len(lmoves)-1)
 		return lmoves[rm]
 
 
@@ -177,7 +177,7 @@ class MCTSBot:
 					for p,S in action_boards
 					)
 			else:
-				move,board = action_boards[randint(0, len(legal)-1)]
+				move,board = action_boards[random.randint(0, len(legal)-1)]
 
 
 			#board = self.game.make_move(board,move)
@@ -208,6 +208,46 @@ class MCTSBot:
 				wins[(player,board)] += 1
 
 
+class  PolicyBot:
+
+	def __init__(self,sizes,act_func,act_grad,game,weights=None,biases=None):
+		self.sizes = sizes
+		self.num_layers = len(sizes)
+		self.game = game
+		
+		if biases is None:
+			self.biases = [np.random.randn(y) for y in sizes[1:]]
+			self.weights = [np.random.randn(y, x) for x, y in zip(sizes[:-1], sizes[1:])]
+
+		self.act_func = act_func
+		self.act_grad = act_grad
+
+	def feedforward(self, a):
+		for b, w in zip(self.biases, self.weights):
+			a = self.act_func(np.dot(w, a))
+		return a
+	
+	def listify(self, board):
+		return np.asarray(board['microboard']+
+		board['macroboard']+
+		board['win_macroboard'])
+	
+	def softmax(self, x):
+		tot = sum(x)
+		return [y / tot for y in x]
+
+	def get_move(self, game,board, *args):
+
+		action_boards = self.game.successors(board)
+
+		outputs = self.softmax([float(self.feedforward(self.listify(b))) 
+			for a,b in action_boards])
+
+		choice_int = np.random.choice(range(len(outputs)),1,p=outputs)
+		return action_boards[choice_int][0]
+		
+
+
 if __name__ == '__main__':
 
 	from game_rules import UTTT
@@ -218,11 +258,22 @@ if __name__ == '__main__':
 
 	#board = boardObject()
 	game = UTTT()
-	bot = MCTSBot(game,time=2,max_moves=50)
+	
+	def sigmoid(z):
+		return 1.0/(1.0+np.exp(-z))
 
+	def sigmoid_prime(z):
+		return sigmoid(z)*(1-sigmoid(z))
+
+	#bot = MCTSBot(game,time=2,max_moves=50)
+	bot = PolicyBot([99,4,2,1],sigmoid,sigmoid_prime,game)
 	#print bot.listify(board)
 
-	print bot.get_move(board)
+	for i in range(200):
+		bot.get_move(board)
+	# for w,b in zip(bot.weights,bot.biases):
+	# 	print w.shape,b.shape
+
 
 
 
