@@ -96,6 +96,7 @@ class UTTT:
 
 	def make_move(self,board, move):
 		#board_copy = copy.deepcopy(board)
+
 		board_copy = self.deepish_copy(board)
 		pid = board_copy['next_turn']
 		# here mbx/mby mean the maxi location

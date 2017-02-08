@@ -172,7 +172,7 @@ def parallel_evolve(N_gen,N_players,matches_per_player,carry_forward,sigma,d,num
 
 class Reinforce:
 
-	def __init__(self,mini_batch_size,num_generations,
+	def __init__(self,eta,mini_batch_size,num_generations,
 		opponent_update_freq,nn_class,bot_class,game_class):
 		self.mini_batch_size = mini_batch_size
 		self.num_generations = num_generations
@@ -180,14 +180,15 @@ class Reinforce:
 		self.nn = nn_class
 		self.bot = bot_class
 		self.game = game_class()
+		self.eta = eta
 
-		self.policies = [self.bot([99,4,2,1],self.sigmoid,self.sigmoid_prime,self.game)]
-		self.main_policy = self.bot([99,4,2,1],self.sigmoid,self.sigmoid_prime,self.game)
+		self.policies = [self.bot([99,4,2,1],np.tanh,self.tanh_prime,self.game)]
+		self.main_policy = self.bot([99,4,2,1],np.tanh,self.tanh_prime,self.game)
 	def sigmoid(self,z):
 		return 1.0/(1.0+np.exp(-z))
 
-	def sigmoid_prime(self,z):
-		return sigmoid(z)*(1-sigmoid(z))
+	def tanh_prime(self,z):
+		return 1-(np.tanh(z)**2)
 
 	def batch_tournament(self):
 
@@ -205,7 +206,7 @@ class Reinforce:
 
 
 
-	def update_mini_batch(self,results):
+	def update_mini_batch(self,mini_batch):
 
 		# with game results and moves, we can construct a vector of 
 		# actual outcomes (0's and 1's) for winners, 0's and -1's for losers
@@ -216,19 +217,48 @@ class Reinforce:
 		# loop through game results (replaying) and run mini_batch each time.
 		# can be parallelised by working on each game separately.
 		
-		nabla_b = [np.zeros(b.shape) for b in self.biases]
-		nabla_w = [np.zeros(w.shape) for w in self.weights]
+		nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
+		nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
+		print 'replaying and updating'
+		#for x, y in mini_batch:
+		for winner,moves in mini_batch:
+			if winner == 0:
+				continue
+			# reinitialize
+			board = {'microboard': [0 for i in range(81)],
+			'macroboard': [-1 for i in range(9)],
+			'win_macroboard': [-1 for i in range(9)],
+			'next_turn': int(moves[0][0])}
 
-		for x, y in mini_batch:
-			delta_nabla_b, delta_nabla_w = self.backprop(x, y)
-			nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-			nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+			for pid,move in moves:
+				#board['next_turn'] = pid
+				action_boards = self.game.successors(board)
+				for a,b in action_boards:
+					if a == move:
+						y = (1 if winner == pid else -1)
+					else:
+						y = (-1 if winner == pid else 1)
 
-		# self.weights = [w-(eta/len(mini_batch))*nw 
-		# 				for w, nw in zip(self.weights, nabla_w)]
-		# self.biases = [b-(eta/len(mini_batch))*nb 
-		# 			   for b, nb in zip(self.biases, nabla_b)]
+					delta_nabla_b, delta_nabla_w = self.main_policy.backprop(b, y)
+					nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+					nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
 
+		self.main_policy.weights = [w-(self.eta/len(mini_batch))*nw 
+						for w, nw in zip(self.main_policy.weights, nabla_w)]
+		self.main_policy.biases = [b-(self.eta/len(mini_batch))*nb 
+					   for b, nb in zip(self.main_policy.biases, nabla_b)]
+		print 'updated mini_batch'
+		pass
+
+
+
+	def generational_update(self):
+
+		for n in xrange(self.num_generations):
+			print n
+			results = self.batch_tournament()
+			self.update_mini_batch(results)
+		print 'DONE'
 
 if __name__ == '__main__':
 	num_cores = mp.cpu_count()
@@ -251,16 +281,19 @@ if __name__ == '__main__':
 
 	from game_rules import UTTT
 	import bots
-	import random
+
 
 	reinforce = Reinforce(
-		mini_batch_size=500,
-		num_generations=1000,
+		eta=0.003,
+		mini_batch_size=128,
+		num_generations=100,
 		opponent_update_freq=500,
 		nn_class=Network,
 		bot_class=bots.PolicyBot,
 		game_class=UTTT)
 
-	results = reinforce.batch_tournament()
+	#results = reinforce.batch_tournament()
+	#reinforce.update_mini_batch(results)
+	reinforce.generational_update()
 
 

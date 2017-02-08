@@ -227,24 +227,85 @@ class  PolicyBot:
 			a = self.act_func(np.dot(w, a)+b)
 		return a
 	
-	def update_weights_biases(self,w_update,b_update):
-		self.weights = self.weights + w_update
-		self.biases = self.biases + b_update
-		pass
-		
+	# def update_weights_biases(self,w_update,b_update):
+	# 	self.weights = self.weights + w_update
+	# 	self.biases = self.biases + b_update
+	# 	pass
+	
+	def backprop(self, x, y):
+		"""Return a tuple ``(nabla_b, nabla_w)`` representing the
+		gradient for the cost function C_x.  ``nabla_b`` and
+		``nabla_w`` are layer-by-layer lists of numpy arrays, similar
+		to ``self.biases`` and ``self.weights``."""
+		nabla_b = [np.zeros(b.shape) for b in self.biases]
+		nabla_w = [np.zeros(w.shape) for w in self.weights]
+		# feedforward
+		activation = self.board_to_input(x)
+		activations = [self.board_to_input(x)] # list to store all the activations, layer by layer
+		zs = [] # list to store all the z vectors, layer by layer
+		for b, w in zip(self.biases, self.weights):
+			z = np.dot(w, activation)+b
+			zs.append(z)
+			activation = self.act_func(z)
+			activations.append(activation) ###### FIX HERE #######
+		# backward pass
+		delta = self.cost_derivative(activations[-1], y) * \
+			self.act_grad(zs[-1])
+		nabla_b[-1] = delta
+		#nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+		nabla_w[-1] = delta * activations[-2].transpose()
+		# Note that the variable l in the loop below is used a little
+		# differently to the notation in Chapter 2 of the book.  Here,
+		# l = 1 means the last layer of neurons, l = 2 is the
+		# second-last layer, and so on.  It's a renumbering of the
+		# scheme in the book, used here to take advantage of the fact
+		# that Python can use negative indices in lists.
+		for l in xrange(2, self.num_layers):
+			z = zs[-l]
+			sp = self.act_grad(z)
+			delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
+			nabla_b[-l] = delta
+			#nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
+			nabla_w[-l] = delta[0] * activations[-l-1].transpose()
+		return (nabla_b, nabla_w)
+	
+	def cost_derivative(self, output_activations, y):
+		"""Return the vector of partial derivatives \partial C_x /
+		\partial a for the output activations.
+		y is the actual win/loss. """
+		return (output_activations-y)
+
+
 	def listify(self, board):
 		return np.asarray(board['microboard']+
 		board['macroboard']+
 		board['win_macroboard'])
 	
+	def board_to_input(self,board):
+	
+		x = board['microboard'][:]+board['win_macroboard'][:]
+		# fliperoo - this is opposite as the boards are passed through 
+		# after game successor is done, meaning the actor is 3-next_turn 
+		if board['next_turn'] == 1:
+			for i in x:
+				if x[i] == 1:
+					x[i] = 2
+				if x[i] == 2:
+					x[i] == 1
+		x = np.asarray(x + board['macroboard'][:])
+		return x
 	def softmax(self, x):
+		if self.act_func(-1) < 0:
+			x = [y + 1 for y in x]
+
 		tot = sum(x)
 		return [y / tot for y in x]
 
 	def get_move(self, board):
 		action_boards = self.game.successors(board)
 
-		outputs = self.softmax([float(self.feedforward(self.listify(b))) 
+		outputs = self.softmax([float(self.feedforward(
+			self.board_to_input(b)))
 			for a,b in action_boards])
 
 		choice_int = np.random.choice(range(len(outputs)),1,p=outputs)
@@ -269,12 +330,15 @@ if __name__ == '__main__':
 	def sigmoid_prime(z):
 		return sigmoid(z)*(1-sigmoid(z))
 
+	def tanh_prime(z):
+		return 1 - (np.tanh(z)**2)
+
 	#bot = MCTSBot(game,time=2,max_moves=50)
-	bot = PolicyBot([99,4,2,1],sigmoid,sigmoid_prime,game)
+	bot = PolicyBot([99,4,2,1],np.tanh,tanh_prime,game)
 	#print bot.listify(board)
 
-	for i in range(200):
-		bot.get_move(board)
+
+	print bot.get_move(board)
 	# for w,b in zip(bot.weights,bot.biases):
 	# 	print w.shape,b.shape
 
