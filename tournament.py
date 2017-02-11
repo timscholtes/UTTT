@@ -6,13 +6,23 @@ import json
 import multiprocessing as mp
 import os
 import time
-
+import copy_reg
+import types
 # from position import Position
 # from randombot import AlphabetaBot
 
 def unwrap_self_f(arg, **kwarg):
     return C.piped_play_replay(*arg, **kwarg)
  
+
+def _pickle_method(m):
+    if m.im_self is None:
+        return getattr, (m.im_class, m.im_func.func_name)
+    else:
+        return getattr, (m.im_self, m.im_func.func_name)
+
+copy_reg.pickle(types.MethodType, _pickle_method)
+
 def generate_schedule(N_players,N_opponents):
 	X = {i: random.sample([x for x in range(N_players) if x!=i],N_opponents) for i in range(N_players)}
 	games_list = []
@@ -196,6 +206,7 @@ class Reinforce:
 		self.bot = bot_class
 		self.game = game_class()
 		self.eta = eta
+		self.__result = []
 
 		self.policies = [self.bot([99,100,100,81],self.sigmoid,self.sigmoid_prime,self.game)]
 		self.main_policy = self.bot([99,100,100,81],self.sigmoid,self.sigmoid_prime,self.game)
@@ -221,91 +232,6 @@ class Reinforce:
 		print 'finished first pass'
 
 		return results
-
-
-	def piped_play_replay(self):#,input_list):
-		record=True
-		verbose=False
-		#p1 = input[0]
-		#p2 = input[1]
-		out = game.play_game(record,verbose,main_policy,opponent)
-		update = update_single_game(out)
-		return update
-
-
-	def parallel_play_replay(self,num_cores):
-		
-		# def piped_play_replay(input_list):
-		# 	record=True
-		# 	verbose=False
-		# 	p1 = input[0]
-		# 	p2 = input[1]
-		# 	#play_game_func = input[2]
-		# 	#update_pars_func = input[3]
-		# 	out = play_game_alias(record,verbose,p1,p2)
-		# 	update = update_alias(out)
-		# 	return update
-
-		main_pol = self.main_policy
-		self.opponent = np.random.choice(self.policies)
-		play_game_alias = self.game.play_game
-		update_alias = self.update_single_game
-
-		#inputs = [main_pol,opponent]#,play_game_alias,update_alias]
-
-		pool = mp.Pool(processes = num_cores)
-		#updates = pool.map(self.piped_play_replay,inputs)
-		#pool.map(unwrap_self_f, zip([self]*len(self.names), self.names))
-		pool.map(unwrap_self_f, [self])
-		pool.close()
-		pool.join()
-		
-		return updates
-
-
-	def update_single_game(self,game_outcome):
-
-		# with game results and moves, we can construct a vector of 
-		# actual outcomes (0's and 1's) for winners, 0's and -1's for losers
-		# versus feedforward probabilites
-
-		#Because of my construction, the x input for each is the game board
-		# each time.
-		# loop through game results (replaying) and run mini_batch each time.
-		# can be parallelised by working on each game separately.
-		
-		nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
-		nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
-		print 'replaying and updating'
-		#for x, y in mini_batch:
-		for winner,moves in game_outcome:
-			if winner == 0:
-				continue
-			# reinitialize
-			board = {'microboard': [0 for i in range(81)],
-			'macroboard': [-1 for i in range(9)],
-			'win_macroboard': [-1 for i in range(9)],
-			'next_turn': int(moves[0][0])}
-
-			for pid,move in moves:
-				#board['next_turn'] = pid
-				move_int = move[1] * 9 + move[0]
-				dummy = (1 if winner == pid else -1)
-				#action_boards = self.game.successors(board)
-				y = [dummy if a == move_int else 0 for a in xrange(81)]
-				# for a in lmoves:
-				# 	if a == move:
-				# 		y = (1 if winner == pid else -1)
-				# 	else:
-				# 		y = (-1 if winner == pid else 1)
-				
-				delta_nabla_b, delta_nabla_w = self.main_policy.backprop(board, y)
-				nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-				nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-
-				board = self.game.make_move(board,move)
-
-		return nabla_w,nabla_b
 
 
 	def update_mini_batch(self,mini_batch):
@@ -357,8 +283,6 @@ class Reinforce:
 		print 'updated mini_batch'
 		pass
 
-
-
 	def generational_update(self):
 
 		for n in xrange(self.num_generations):
@@ -366,6 +290,103 @@ class Reinforce:
 			results = self.batch_tournament()
 			self.update_mini_batch(results)
 		print 'DONE'
+
+
+######### PARALLEL METHODS
+	def piped_play_replay(self):
+		record=True
+		verbose=False
+		out = self.game.play_game(record,verbose,
+			self.main_policy,self.opponent)
+		update = self.update_single_game(out)
+		return update
+
+
+	def resultCollector(self,result):
+		self.__result.append(result)
+
+
+	def parallel_play_replay(self,num_cores):
+		self.opponent = np.random.choice(self.policies)
+
+		pool = mp.Pool(processes = num_cores)
+		pool.apply_async(self.piped_play_replay,
+			callback=self.resultCollector)
+
+		pool.close()
+		pool.join()
+		return self.__result
+
+
+	def update_single_game(self,game_outcome):
+
+		# with game results and moves, we can construct a vector of 
+		# actual outcomes (0's and 1's) for winners, 0's and -1's for losers
+		# versus feedforward probabilites
+
+		#Because of my construction, the x input for each is the game board
+		# each time.
+		# loop through game results (replaying) and run mini_batch each time.
+		# can be parallelised by working on each game separately.
+		
+		nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
+		nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
+		print 'replaying and updating'
+		#for x, y in mini_batch:
+		winner = game_outcome[0]
+		moves = game_outcome[1]	
+	#	for winner,moves in game_outcome:
+#		if winner == 0:
+#			continue
+		# reinitialize
+		board = {'microboard': [0 for i in range(81)],
+		'macroboard': [-1 for i in range(9)],
+		'win_macroboard': [-1 for i in range(9)],
+		'next_turn': int(moves[0][0])}
+
+		for pid,move in moves:
+			#board['next_turn'] = pid
+			move_int = move[1] * 9 + move[0]
+			dummy = (1 if winner == pid else -1)
+			#action_boards = self.game.successors(board)
+			y = [dummy if a == move_int else 0 for a in xrange(81)]
+			# for a in lmoves:
+			# 	if a == move:
+			# 		y = (1 if winner == pid else -1)
+			# 	else:
+			# 		y = (-1 if winner == pid else 1)
+			
+			delta_nabla_b, delta_nabla_w = self.main_policy.backprop(board, y)
+			nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+			nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+
+			board = self.game.make_move(board,move)
+
+		return nabla_w,nabla_b
+
+
+	def generational_update_parallel(self,num_cores,gens):
+
+		for n in xrange(self.num_generations):
+			print n
+			updates = self.parallel_play_replay(num_cores)
+
+			nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
+			nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
+			
+			nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
+			nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+
+
+			self.main_policy.weights = [w-(self.eta/len(mini_batch))*nw 
+			for w, nw in zip(self.main_policy.weights, nabla_w)]
+			self.main_policy.biases = [b-(self.eta/len(mini_batch))*nb 
+			for b, nb in zip(self.main_policy.biases, nabla_b)]
+
+
+		print 'DONE'
+
+
 
 if __name__ == '__main__':
 	num_cores = mp.cpu_count()
@@ -405,7 +426,14 @@ if __name__ == '__main__':
 	# reinforce.generational_update()
 	# t2 = time.time()
 	# print t2-t1
-	print reinforce.parallel_play_replay(4)
+	updates= reinforce.parallel_play_replay2(4)
+	print updates
+
+
+
+	# reinforce.opponent = np.random.choice(reinforce.policies)
+	# out = reinforce.game.play_game(True,True,reinforce.main_policy,reinforce.opponent)
+	# update = reinforce.update_single_game(out)
 
 	#######
 
