@@ -216,7 +216,7 @@ class  PolicyBot:
 		self.game = game
 		
 		if biases is None:
-			self.biases = [np.random.randn(y) for y in sizes[1:]]
+			self.biases = [np.random.randn(y,1) for y in sizes[1:]]
 			self.weights = [np.random.randn(y, x) for x, y in zip(sizes[:-1], sizes[1:])]
 
 		self.act_func = act_func
@@ -237,23 +237,31 @@ class  PolicyBot:
 		gradient for the cost function C_x.  ``nabla_b`` and
 		``nabla_w`` are layer-by-layer lists of numpy arrays, similar
 		to ``self.biases`` and ``self.weights``."""
+
 		nabla_b = [np.zeros(b.shape) for b in self.biases]
 		nabla_w = [np.zeros(w.shape) for w in self.weights]
 		# feedforward
 		activation = self.board_to_input(x)
-		activations = [self.board_to_input(x)] # list to store all the activations, layer by layer
+#		activation = np.reshape(activation,(len(activation),1))
+		activations = [activation] # list to store all the activations, layer by layer
 		zs = [] # list to store all the z vectors, layer by layer
 		for b, w in zip(self.biases, self.weights):
 			z = np.dot(w, activation)+b
 			zs.append(z)
 			activation = self.act_func(z)
-			activations.append(activation) ###### FIX HERE #######
+
+#			activation = np.reshape(activation,(len(activation),1))
+			activations.append(activation)
 		# backward pass
-		delta = self.cost_derivative(activations[-1], y) * \
+		delta = self.cost_derivative(activations[-1], np.reshape(y,(81,1))) * \
 			self.act_grad(zs[-1])
+
+		#delta = np.reshape(delta,(len(delta),1))
+		
 		nabla_b[-1] = delta
-		#nabla_w[-1] = np.dot(delta, activations[-2].transpose())
-		nabla_w[-1] = delta * activations[-2].transpose()
+
+		nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+		
 		# Note that the variable l in the loop below is used a little
 		# differently to the notation in Chapter 2 of the book.  Here,
 		# l = 1 means the last layer of neurons, l = 2 is the
@@ -265,15 +273,15 @@ class  PolicyBot:
 			sp = self.act_grad(z)
 			delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
 			nabla_b[-l] = delta
-			#nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
-			nabla_w[-l] = delta[0] * activations[-l-1].transpose()
+			nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
+			#nabla_w[-l] = delta[0] * activations[-l-1].transpose()
 		return (nabla_b, nabla_w)
 	
 	def cost_derivative(self, output_activations, y):
 		"""Return the vector of partial derivatives \partial C_x /
 		\partial a for the output activations.
 		y is the actual win/loss. """
-		return (output_activations-y)
+		return (output_activations - y)
 
 
 	def listify(self, board):
@@ -292,8 +300,12 @@ class  PolicyBot:
 					x[i] = 2
 				if x[i] == 2:
 					x[i] == 1
-		x = np.asarray(x + board['macroboard'][:])
+		x = np.array(x + board['macroboard'][:])
+
+		x = np.reshape(x,(99,1))
 		return x
+
+
 	def softmax(self, x):
 		if self.act_func(-1) < 0:
 			x = [y + 1 for y in x]
@@ -302,16 +314,21 @@ class  PolicyBot:
 		return [y / tot for y in x]
 
 	def get_move(self, board):
-		action_boards = self.game.successors(board)
+		lmoves = self.game.legal_moves(board)
 
-		outputs = self.softmax([float(self.feedforward(
-			self.board_to_input(b)))
-			for a,b in action_boards])
+		lmoves_int = [y*9 + x for x,y in lmoves]
+		#action_boards = self.game.successors(board)
 
-		choice_int = np.random.choice(range(len(outputs)),1,p=outputs)
-		return action_boards[choice_int][0]
+		# outputs = self.softmax([float(self.feedforward(
+		# 	self.board_to_input(b)))
+		# 	for a,b in action_boards])
+		outputs = self.feedforward(self.board_to_input(board))
+		trim_outputs = [float(outputs[move]) for move in lmoves_int]
+		p_outputs = self.softmax(trim_outputs)
+		choice_int = np.random.choice(range(len(p_outputs)),1,p=p_outputs)
 		
-
+		return lmoves[choice_int]
+		
 
 if __name__ == '__main__':
 
@@ -334,7 +351,8 @@ if __name__ == '__main__':
 		return 1 - (np.tanh(z)**2)
 
 	#bot = MCTSBot(game,time=2,max_moves=50)
-	bot = PolicyBot([99,4,2,1],np.tanh,tanh_prime,game)
+	#bot = PolicyBot([99,4,2,1],np.tanh,tanh_prime,game)
+	bot = PolicyBot([99,100,100,81],sigmoid,sigmoid_prime,game)
 	#print bot.listify(board)
 
 

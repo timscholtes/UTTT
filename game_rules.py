@@ -331,3 +331,28 @@ class UTTT:
 		pass
 	# ---- PRINTING FUNCTIONS END -----
 
+
+if __name__ == '__main__':
+
+
+	import bots
+	
+	game = UTTT()
+	def sigmoid(z):
+		return 1.0/(1.0+np.exp(-z))
+
+	def sigmoid_prime(z):
+		return sigmoid(z)*(1-sigmoid(z))
+
+	bot1 = bots.PolicyBot([99,100,100,81],sigmoid,sigmoid_prime,game)
+	bot2 = bots.PolicyBot([99,100,100,81],sigmoid,sigmoid_prime,game)
+
+	bot1.myid = 1
+	bot2.myid = 2
+	bot1.oppid = 2
+	bot2.oppid = 1
+
+	outcome = game.play_game(True,bot1,bot2)
+
+
+
