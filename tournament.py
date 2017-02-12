@@ -197,16 +197,14 @@ class Reinforce:
 	"""
 
 
-	def __init__(self,eta,mini_batch_size,num_generations,
+	def __init__(self,eta,mini_batch_size,
 		opponent_update_freq,nn_class,bot_class,game_class):
 		self.mini_batch_size = mini_batch_size
-		self.num_generations = num_generations
 		self.opponent_update_freq = opponent_update_freq
 		self.nn = nn_class
 		self.bot = bot_class
 		self.game = game_class()
 		self.eta = eta
-		self.__result = []
 
 		self.policies = [self.bot([99,100,100,81],self.sigmoid,self.sigmoid_prime,self.game)]
 		self.main_policy = self.bot([99,100,100,81],self.sigmoid,self.sigmoid_prime,self.game)
@@ -293,29 +291,26 @@ class Reinforce:
 
 
 ######### PARALLEL METHODS
-	def piped_play_replay(self):
+	def piped_play_replay(self,opponent):
 		record=True
 		verbose=False
+		
+		
 		out = self.game.play_game(record,verbose,
-			self.main_policy,self.opponent)
+			self.main_policy,opponent)
 		update = self.update_single_game(out)
 		return update
-
-
-	def resultCollector(self,result):
-		self.__result.append(result)
-
+		
 
 	def parallel_play_replay(self,num_cores):
-		self.opponent = np.random.choice(self.policies)
-
+		
 		pool = mp.Pool(processes = num_cores)
-		pool.apply_async(self.piped_play_replay,
-			callback=self.resultCollector)
+		input_list = np.random.choice(self.policies,self.mini_batch_size)
+		res = pool.map(self.piped_play_replay,input_list)
 
 		pool.close()
 		pool.join()
-		return self.__result
+		return res
 
 
 	def update_single_game(self,game_outcome):
@@ -331,7 +326,6 @@ class Reinforce:
 		
 		nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
 		nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
-		print 'replaying and updating'
 		#for x, y in mini_batch:
 		winner = game_outcome[0]
 		moves = game_outcome[1]	
@@ -365,26 +359,45 @@ class Reinforce:
 		return nabla_w,nabla_b
 
 
+
 	def generational_update_parallel(self,num_cores,gens):
 
-		for n in xrange(self.num_generations):
+		for n in xrange(gens):
 			print n
+			if n % self.opponent_update_freq == 0:
+				pol_copy = copy.deepcopy(self.main_policy)
+				self.policies.append(pol_copy)
 			updates = self.parallel_play_replay(num_cores)
+			updates_w = updates[0][0]
+			updates_b = updates[0][1]
+			for i in xrange(1,len(updates)):
+				updates_w = updates_w + updates[i][0]
+				updates_b = updates_b + updates[i][1]
 
-			nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
-			nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
-			
-			nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-			nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
+			# updates_unzipped = zip(*updates)
+			# delta_nabla_b = [np.zeros(b.shape) for b in self.main_policy.biases]
+			# delta_nabla_w = [np.zeros(w.shape) for w in self.main_policy.weights]
 
+			# nabla_b = [nb+dnb for nb, dnb in zip(delta_nabla_b, updates_unzipped[0])]
+			# nabla_w = [nw+dnw for nw, dnw in zip(delta_nabla_w, updates_unzipped[1])]
 
-			self.main_policy.weights = [w-(self.eta/len(mini_batch))*nw 
-			for w, nw in zip(self.main_policy.weights, nabla_w)]
-			self.main_policy.biases = [b-(self.eta/len(mini_batch))*nb 
-			for b, nb in zip(self.main_policy.biases, nabla_b)]
+			self.main_policy.weights = [w-(self.eta/self.mini_batch_size)*nw 
+			for w, nw in zip(self.main_policy.weights, updates_w)]
+			self.main_policy.biases = [b-(self.eta/self.mini_batch_size)*nb 
+			for b, nb in zip(self.main_policy.biases, updates_b)]
 
 
 		print 'DONE'
+
+
+	def board_outcome_dataset_maker(self,N):
+		dataset = []
+		for n in xrange(N):
+			dataset.append([self.game.play_game_interrupt(False,50,self.main_policy,self.main_policy)])
+		
+		return dataset
+
+
 
 
 
@@ -413,24 +426,36 @@ if __name__ == '__main__':
 
 	reinforce = Reinforce(
 		eta=0.003,
-		mini_batch_size=128,
-		num_generations=3,
+		mini_batch_size=12,
 		opponent_update_freq=500,
 		nn_class=Network,
 		bot_class=bots.PolicyBot,
 		game_class=UTTT)
 
-	#results = reinforce.batch_tournament()
-	#reinforce.update_mini_batch(results)
 	# t1= time.time()
-	# reinforce.generational_update()
+	# results = reinforce.batch_tournament()
+	# reinforce.update_mini_batch(results)
 	# t2 = time.time()
 	# print t2-t1
-	updates= reinforce.parallel_play_replay2(4)
-	print updates
+	# # t1= time.time()
+	# # reinforce.generational_update()
+	# # t2 = time.time()
+	# print t2-t1
 
+	# t1 = time.time()
+	# updates= reinforce.parallel_play_replay(4)
+	# t2 = time.time()
+	# print t2-t1
 
+	t1 = time.time()
+	reinforce.generational_update_parallel(4,2)
+	t2 = time.time()
+	print (t2-t1)/10
 
+	t1 = time.time()
+	dataset = reinforce.board_outcome_dataset_maker(1000)
+	t2 = time.time()
+	print (t2-t1)/10	
 	# reinforce.opponent = np.random.choice(reinforce.policies)
 	# out = reinforce.game.play_game(True,True,reinforce.main_policy,reinforce.opponent)
 	# update = reinforce.update_single_game(out)

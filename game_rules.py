@@ -1,6 +1,7 @@
 import itertools
 import copy
 import numpy as np
+import random
 
 class boardObject:
 
@@ -293,6 +294,64 @@ class UTTT:
 					else:
 						return winner
 
+
+	def play_game_interrupt(self,verbose=False,Urange=20,*players,**kwargs):
+
+		board = {'microboard': [0 for i in range(81)],
+		'macroboard': [-1 for i in range(9)],
+		'win_macroboard': [-1 for i in range(9)],
+		'next_turn': 1}
+
+		U = np.random.choice(range(Urange),1)
+
+		# flip for who goes first:
+		x = np.random.choice([1,2])
+		for player in players:
+			player.myid = x
+			player.oppid = 3 - x
+			x = 3 - x
+
+		counter = 0
+		while True:
+			for player in players:
+				
+				pid = player.myid
+
+				if verbose:
+					self.print_board_status(board)
+
+				if counter == U:
+					board_copy = self.deepish_copy(board)
+
+				if counter <= U:
+					lmoves = self.legal_moves(board)
+					rm = random.randint(0, len(lmoves)-1)
+					move = lmoves[rm]
+				else:
+					move = player.get_move(board)
+
+				if verbose:
+					print 'player:',pid,'makes move:',move[0],move[1]
+				
+				board = self.make_move(board,move)
+				counter += 1
+
+				if self.terminal_test(board,move):
+					if verbose:
+						print 'WINNER!'
+					#outcome = [-1,-1]
+					winner = self.terminal_pid(board)
+					# if winner == 0:
+					# 	outcome = [0,0]
+					# else:
+					# 	outcome[winner-1] = 1
+
+					if counter <= U:
+						pass
+					else:
+						print counter,U
+						return (board_copy,winner,U)
+					
 
 
 	# ---- PRINTING FUNCTIONS START -----
