@@ -274,9 +274,9 @@ class Reinforce:
 
 				board = self.game.make_move(board,move)
 
-		self.main_policy.weights = [w-(self.eta/len(mini_batch))*nw 
+		self.main_policy.weights = [w + (self.eta/len(mini_batch))*nw 
 						for w, nw in zip(self.main_policy.weights, nabla_w)]
-		self.main_policy.biases = [b-(self.eta/len(mini_batch))*nb 
+		self.main_policy.biases = [b + (self.eta/len(mini_batch))*nb 
 					   for b, nb in zip(self.main_policy.biases, nabla_b)]
 		print 'updated mini_batch'
 		pass
