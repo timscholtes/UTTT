@@ -213,8 +213,8 @@ class UTTT:
 				if board['win_macroboard'][x] == -1:
 					success = False
 					break
-				else:
-					continue
+				#else:
+				#	continue
 			return success
 
 			
@@ -255,7 +255,8 @@ class UTTT:
 		moves=[]
 
 		# flip for who goes first:
-		x = np.random.choice([1,2])
+		x = int(np.random.choice([1,2]))
+		board['next_turn'] = x
 		for player in players:
 			player.myid = x
 			player.oppid = 3 - x
@@ -265,6 +266,7 @@ class UTTT:
 			for player in players:
 
 				pid = player.myid
+				
 
 				if verbose:
 					self.print_board_status(board)
@@ -305,51 +307,33 @@ class UTTT:
 		U = np.random.choice(range(Urange),1)
 
 		# flip for who goes first:
-		x = np.random.choice([1,2])
+		x = int(np.random.choice([1,2]))
+		board['next_turn'] = x
 		for player in players:
 			player.myid = x
 			player.oppid = 3 - x
 			x = 3 - x
-
+			
 		counter = 0
 		while True:
 			for player in players:
-				
 				pid = player.myid
-
-				if verbose:
-					self.print_board_status(board)
-
 				if counter == U:
 					board_copy = self.deepish_copy(board)
-
 				if counter <= U:
 					lmoves = self.legal_moves(board)
 					rm = random.randint(0, len(lmoves)-1)
 					move = lmoves[rm]
 				else:
 					move = player.get_move(board)
-
-				if verbose:
-					print 'player:',pid,'makes move:',move[0],move[1]
-				
 				board = self.make_move(board,move)
 				counter += 1
 
 				if self.terminal_test(board,move):
-					if verbose:
-						print 'WINNER!'
-					#outcome = [-1,-1]
 					winner = self.terminal_pid(board)
-					# if winner == 0:
-					# 	outcome = [0,0]
-					# else:
-					# 	outcome[winner-1] = 1
-
 					if counter <= U:
-						pass
+						return None
 					else:
-						print counter,U
 						return (board_copy,winner,U)
 					
 
@@ -412,6 +396,4 @@ if __name__ == '__main__':
 	bot2.oppid = 1
 
 	outcome = game.play_game(True,bot1,bot2)
-
-
 

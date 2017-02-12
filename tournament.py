@@ -2,12 +2,12 @@
 from nn_methods import *
 import random
 from main import *
-import json
 import multiprocessing as mp
 import os
 import time
 import copy_reg
 import types
+import pickle
 # from position import Position
 # from randombot import AlphabetaBot
 
@@ -360,7 +360,7 @@ class Reinforce:
 
 
 
-	def generational_update_parallel(self,num_cores,gens):
+	def generational_update_parallel(self,num_cores,gens,save_loc):
 
 		for n in xrange(gens):
 			print n
@@ -386,16 +386,40 @@ class Reinforce:
 			self.main_policy.biases = [b-(self.eta/self.mini_batch_size)*nb 
 			for b, nb in zip(self.main_policy.biases, updates_b)]
 
+		dir1 = save_loc + '/main_pol/'
+		if not os.path.exists(dir1):
+			os.makedirs(dir1)
+
+		dir2 = save_loc + '/history_pols/'
+		if not os.path.exists(dir2):
+			os.makedirs(dir2)
+
+		# when the loop is done, save down all policies:
+		np.save(dir1 + 'weights.npy',self.main_policy.weights)
+		np.save(dir1 + 'biases.npy',self.main_policy.biases)
+
+		for i in range(len(self.policies)):
+			np.save(dir2 + 'weights' + str(i) + '.npy',self.policies[i].weights)
+			np.save(dir2 + 'biases' + str(i) + '.npy',self.policies[i].biases)
+
 
 		print 'DONE'
 
 
-	def board_outcome_dataset_maker(self,N):
+	def board_outcome_dataset_maker(self,N,save_freq,save_loc):
+		
+		def save_object(obj,filename):
+			with open(filename, 'wb') as output:
+				pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+
 		dataset = []
 		for n in xrange(N):
+			if n != 0 and n % save_freq == 0:
+				save_object(dataset,save_loc + '/sampled_winloss_boards/dat' + str(n) + '.pkl')
+				dataset = []
+			print n
 			dataset.append([self.game.play_game_interrupt(False,50,self.main_policy,self.main_policy)])
-		
-		return dataset
+		print 'Finished.'
 
 
 
@@ -426,39 +450,24 @@ if __name__ == '__main__':
 
 	reinforce = Reinforce(
 		eta=0.003,
-		mini_batch_size=12,
+		mini_batch_size=64,
 		opponent_update_freq=500,
 		nn_class=Network,
 		bot_class=bots.PolicyBot,
 		game_class=UTTT)
 
-	# t1= time.time()
-	# results = reinforce.batch_tournament()
-	# reinforce.update_mini_batch(results)
-	# t2 = time.time()
-	# print t2-t1
-	# # t1= time.time()
-	# # reinforce.generational_update()
-	# # t2 = time.time()
-	# print t2-t1
-
-	# t1 = time.time()
-	# updates= reinforce.parallel_play_replay(4)
-	# t2 = time.time()
-	# print t2-t1
-
 	t1 = time.time()
-	reinforce.generational_update_parallel(4,2)
+	reinforce.generational_update_parallel(4,4,'data_120217')
 	t2 = time.time()
 	print (t2-t1)/10
 
 	t1 = time.time()
-	dataset = reinforce.board_outcome_dataset_maker(1000)
+	dataset = reinforce.board_outcome_dataset_maker(100,20,'data_120217')
 	t2 = time.time()
-	print (t2-t1)/10	
-	# reinforce.opponent = np.random.choice(reinforce.policies)
-	# out = reinforce.game.play_game(True,True,reinforce.main_policy,reinforce.opponent)
-	# update = reinforce.update_single_game(out)
+	print (t2-t1)	
+
+
+
 
 	#######
 
